@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Edit(./.specs/**)",
+      "Write(./.specs/**)"
+    ]
+  },
+  "showClearContextOnPlanAccept": true
+}

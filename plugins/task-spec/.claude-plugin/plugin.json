@@ -1,0 +1,11 @@
+{
+  "name": "task-spec",
+  "version": "0.1.0",
+  "description": "Draft a coding-task spec interactively, then hand it off to implementation via ExitPlanMode.",
+  "author": {
+    "name": "Paolo Arduin"
+  },
+  "homepage": "https://github.com/paoloq/cc-plugins/tree/main/plugins/task-spec",
+  "license": "MIT",
+  "keywords": ["spec", "planning", "draft", "task"]
+}

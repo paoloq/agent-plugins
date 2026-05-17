@@ -1,0 +1,123 @@
+{
+  "item": "plugins/prompt",
+  "triggers": {
+    "must_match_any": [
+      "draft a prompt",
+      "write a prompt",
+      "review this prompt",
+      "assess this prompt",
+      "revise this prompt",
+      "refactor this prompt",
+      "according to the openai docs",
+      "according to the anthropic docs",
+      "according to the gemini docs",
+      "what does the openai guide say",
+      "what does the anthropic guide say",
+      "what does the gemini guide say",
+      "check the prompting guide"
+    ],
+    "positive": [
+      "can you draft a prompt for an agent that summarizes pull requests?",
+      "write a prompt that turns meeting notes into action items",
+      "review this prompt in prompts/triage.md and tell me what's weak",
+      "assess this prompt against the anthropic guide",
+      "revise this prompt at prompts/triage.md to use xml scaffolding",
+      "refactor this prompt to follow openai's structured-output guidance",
+      "what does the openai guide say about reasoning effort for gpt-5.5?",
+      "according to the anthropic docs, when should i use extended thinking?",
+      "can you check the prompting guide for gemini 3 on tool use?"
+    ],
+    "negative": [
+      "explain how system prompts differ from user messages",
+      "summarize this meeting transcript in three bullets",
+      "review my pull request at github.com/foo/bar/pull/42",
+      "refactor this python module to remove the duplicated parsing logic",
+      "how should i prompt gpt-5.5 for code review?",
+      "which model is cheapest for long-context summarization?",
+      "compare opus 4.7 vs sonnet 4.6 latency",
+      "draft an email to the team about the migration timeline"
+    ]
+  },
+  "output": [
+    {
+      "id": "claude-plugin-manifest-present",
+      "kind": "golden",
+      "fixture": "../.claude-plugin/plugin.json",
+      "must_contain": ["\"name\": \"prompt\""]
+    },
+    {
+      "id": "session-start-hook-wired",
+      "kind": "golden",
+      "fixture": "../hooks/hooks.json",
+      "must_contain": ["SessionStart", "startup", "refresh.py"]
+    },
+    {
+      "id": "draft-skill-frontmatter",
+      "kind": "golden",
+      "fixture": "../skills/draft/SKILL.md",
+      "frontmatter_required_keys": ["name", "description"],
+      "must_contain": ["./.prompts/draft/<YYYY-MM-DD>-<run-id>/", "section by section"]
+    },
+    {
+      "id": "guides-skill-reads-cache-index",
+      "kind": "golden",
+      "fixture": "../skills/guides/SKILL.md",
+      "frontmatter_required_keys": ["name", "description"],
+      "must_contain": ["hooks/sources.json", "cache/<id>.md", "SessionStart hook", "Sources"]
+    },
+    {
+      "id": "review-skill-emits-html-report",
+      "kind": "golden",
+      "fixture": "../skills/review/SKILL.md",
+      "frontmatter_required_keys": ["name", "description"],
+      "must_contain": [
+        "./.prompts/review/<YYYY-MM-DD>-<run-id>/",
+        "render_report.py",
+        "Want to apply the fixes?",
+        "revise"
+      ]
+    },
+    {
+      "id": "review-skill-has-render-script",
+      "kind": "golden",
+      "fixture": "../skills/review/scripts/render_report.py",
+      "must_contain": ["#!/usr/bin/env python3"]
+    },
+    {
+      "id": "revise-skill-writes-revised-file",
+      "kind": "golden",
+      "fixture": "../skills/revise/SKILL.md",
+      "frontmatter_required_keys": ["name", "description"],
+      "must_contain": ["./.prompts/revise/<YYYY-MM-DD>-<run-id>/", "-revised.md"]
+    },
+    {
+      "id": "revise-skill-session-pickup",
+      "kind": "golden",
+      "fixture": "../skills/revise/SKILL.md",
+      "must_contain": ["session pickup", "Reuse this report"]
+    },
+    {
+      "id": "no-legacy-slash-command-refs",
+      "kind": "golden",
+      "fixtures": [
+        "../skills/draft/SKILL.md",
+        "../skills/guides/SKILL.md",
+        "../skills/review/SKILL.md",
+        "../skills/revise/SKILL.md"
+      ],
+      "must_not_contain": ["/prompt draft", "/prompt guides", "/prompt review", "/prompt revise"],
+      "regex_must_not_match": "(?m)^## Input\\s*$"
+    },
+    {
+      "id": "no-claude-only-ui-without-example",
+      "kind": "golden",
+      "fixtures": [
+        "../skills/draft/SKILL.md",
+        "../skills/guides/SKILL.md",
+        "../skills/review/SKILL.md",
+        "../skills/revise/SKILL.md"
+      ],
+      "regex_must_not_match": "AskUserQuestion(?![^\\n]*Claude Code)"
+    }
+  ]
+}

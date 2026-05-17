@@ -1,0 +1,26 @@
+{
+  "name": "cc-plugins",
+  "owner": {
+    "name": "Paolo Arduin"
+  },
+  "description": "Curated plugins for Claude Code.",
+  "version": "0.1.0",
+  "plugins": [
+    {
+      "name": "prompt",
+      "source": "./plugins/prompt",
+      "description": "Four skills (draft, guides, review, revise) for prompt-engineering against curated Anthropic, OpenAI, and Google guides.",
+      "version": "0.1.0",
+      "category": "prompt-engineering",
+      "tags": ["prompt", "review", "draft", "guides", "revise"]
+    },
+    {
+      "name": "task-spec",
+      "source": "./plugins/task-spec",
+      "description": "Interview-driven SPEC drafter that writes ./.specs/<slug>.md against a fixed 5-section template, then hands off to implementation via ExitPlanMode.",
+      "version": "0.1.0",
+      "category": "planning",
+      "tags": ["spec", "planning", "draft", "task"]
+    }
+  ]
+}

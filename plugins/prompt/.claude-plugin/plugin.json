@@ -1,0 +1,11 @@
+{
+  "name": "prompt",
+  "version": "0.1.0",
+  "description": "Draft, revise, and review prompts using curated guides from Anthropic, OpenAI, and Google.",
+  "author": {
+    "name": "Paolo Arduin"
+  },
+  "homepage": "https://github.com/paoloq/cc-plugins/tree/main/plugins/prompt",
+  "license": "MIT",
+  "keywords": ["prompt", "prompt-engineering", "review", "draft", "guides", "revise"]
+}
