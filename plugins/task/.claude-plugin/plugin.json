@@ -1,0 +1,11 @@
+{
+  "name": "task",
+  "version": "0.1.0",
+  "description": "Draft a coding-task spec, then deliberate the implementation plan with Codex before handing off via ExitPlanMode.",
+  "author": {
+    "name": "Paolo Arduin"
+  },
+  "homepage": "https://github.com/paoloq/cc-plugins/tree/main/plugins/task",
+  "license": "MIT",
+  "keywords": ["spec", "planning", "draft", "task", "council", "codex"]
+}

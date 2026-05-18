@@ -34,6 +34,20 @@ cc-plugins/
     skills/<skill>/                   # One directory per skill
 ```
 
+## 🧪 Evals
+
+```
+python3 evals/run.py all
+```
+
+To run them automatically before every commit (one-time, per clone):
+
+```
+git config core.hooksPath .githooks
+```
+
+Bypass with `git commit --no-verify` or `PRE_COMMIT_SKIP_EVALS=1`.
+
 ## 📄 License
 
 MIT — see [LICENSE](LICENSE).

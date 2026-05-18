@@ -60,7 +60,7 @@
         "${CLAUDE_PLUGIN_ROOT}/skills/audit/scripts/audit.py prepare",
         "${CLAUDE_PLUGIN_ROOT}/skills/audit/scripts/audit.py finalize",
         "five subagents",
-        "wall-clock budget"
+        "Wall-clock budget"
       ]
     },
     {

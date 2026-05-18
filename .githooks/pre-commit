@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Run plugin evals before allowing a commit.
+# Skip with: git commit --no-verify  (or PRE_COMMIT_SKIP_EVALS=1).
+set -euo pipefail
+
+if [ "${PRE_COMMIT_SKIP_EVALS:-0}" = "1" ]; then
+  exit 0
+fi
+
+repo_root="$(git rev-parse --show-toplevel)"
+cd "$repo_root"
+
+echo "pre-commit: running evals/run.py all"
+python3 evals/run.py all

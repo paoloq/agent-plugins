@@ -1,7 +1,7 @@
 ---
-name: draft
+name: draft-spec
 disable-model-invocation: true
-description: Draft a coding-task spec against a fixed 5-section template, asking the user only where recon leaves load-bearing ambiguity, then hand it off to implementation in the same session via ExitPlanMode. Use when the user says "draft spec", "write a spec", "/draft", or asks to produce a SPEC document for a task.
+description: Draft a coding-task spec against a fixed 5-section template, asking the user only where recon leaves load-bearing ambiguity, then hand it off to implementation in the same session via ExitPlanMode. Use when the user says "draft spec", "write a spec", "/draft-spec", or asks to produce a SPEC document for a task.
 ---
 
 You are drafting a task spec — a written `SPEC.md` at `./.specs/<slug>.md` that will be handed to implementation in the same session via `ExitPlanMode` once the user approves it.

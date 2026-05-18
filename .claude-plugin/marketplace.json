@@ -15,12 +15,12 @@
       "tags": ["prompt", "review", "draft", "guides", "revise"]
     },
     {
-      "name": "task-spec",
-      "source": "./plugins/task-spec",
-      "description": "Interview-driven SPEC drafter that writes ./.specs/<slug>.md against a fixed 5-section template, then hands off to implementation via ExitPlanMode.",
+      "name": "task",
+      "source": "./plugins/task",
+      "description": "Plan a coding task end-to-end: the `draft-spec` skill produces ./.specs/<slug>.md against a fixed 5-section template, and `plan-council` deliberates the implementation plan with Codex before handing off via ExitPlanMode.",
       "version": "0.1.0",
       "category": "planning",
-      "tags": ["spec", "planning", "draft", "task"]
+      "tags": ["spec", "planning", "draft", "task", "council", "codex"]
     },
     {
       "name": "repo",

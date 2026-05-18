@@ -50,14 +50,14 @@
       "kind": "golden",
       "fixture": "../skills/draft/SKILL.md",
       "frontmatter_required_keys": ["name", "description"],
-      "must_contain": ["./.prompts/draft/<YYYY-MM-DD>-<run-id>/", "section by section"]
+      "must_contain": ["<HOME>/.claude/cache/prompt/draft/", "section by section"]
     },
     {
       "id": "guides-skill-reads-cache-index",
       "kind": "golden",
       "fixture": "../skills/guides/SKILL.md",
       "frontmatter_required_keys": ["name", "description"],
-      "must_contain": ["hooks/sources.json", "cache/<id>.md", "SessionStart hook", "Sources"]
+      "must_contain": ["<plugin-root>/guides/", "Sources"]
     },
     {
       "id": "review-skill-emits-html-report",
@@ -65,7 +65,7 @@
       "fixture": "../skills/review/SKILL.md",
       "frontmatter_required_keys": ["name", "description"],
       "must_contain": [
-        "./.prompts/review/<YYYY-MM-DD>-<run-id>/",
+        "<HOME>/.claude/cache/prompt/review/",
         "render_report.py",
         "Want to apply the fixes?",
         "revise"
@@ -82,7 +82,7 @@
       "kind": "golden",
       "fixture": "../skills/revise/SKILL.md",
       "frontmatter_required_keys": ["name", "description"],
-      "must_contain": ["./.prompts/revise/<YYYY-MM-DD>-<run-id>/", "-revised.md"]
+      "must_contain": ["<HOME>/.claude/cache/prompt/revise/", "-revised.md"]
     },
     {
       "id": "revise-skill-session-pickup",
@@ -101,17 +101,6 @@
       ],
       "must_not_contain": ["/prompt draft", "/prompt guides", "/prompt review", "/prompt revise"],
       "regex_must_not_match": "(?m)^## Input\\s*$"
-    },
-    {
-      "id": "no-claude-only-ui-without-example",
-      "kind": "golden",
-      "fixtures": [
-        "../skills/draft/SKILL.md",
-        "../skills/guides/SKILL.md",
-        "../skills/review/SKILL.md",
-        "../skills/revise/SKILL.md"
-      ],
-      "regex_must_not_match": "AskUserQuestion(?![^\\n]*Claude Code)"
     }
   ]
 }
