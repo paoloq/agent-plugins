@@ -289,6 +289,9 @@ tbody tr:last-child td { border-bottom:0 }
 tbody tr:hover { background:var(--panel-2) }
 th { color:var(--mute); font-weight:600; font-size:11px; letter-spacing:.06em;
   text-transform:uppercase; background:var(--panel-2) }
+th[title], .kpi .label[title], .dim .label[title], .chip[title] { cursor:help;
+  text-decoration:underline dotted color-mix(in srgb,var(--mute) 60%,transparent);
+  text-underline-offset:3px }
 td.num, th.num { text-align:right; font-variant-numeric:tabular-nums }
 td.bar-cell { width:34%; padding-right:14px }
 
@@ -531,6 +534,144 @@ MIRROR_PARITY_LABEL: dict[str, str] = {
 }
 
 
+GLOSSARY: dict[str, str] = {
+    # KPI labels
+    "Run cost":         "Total USD billed across the five benchmark subagents in this run, from session logs.",
+    "Cheapest model":   "Lowest projected USD if the same benchmark token profile were billed at another model's list rates.",
+    "Wall time":        "Sum of subagent wall-clock times across all benchmark tasks.",
+    "Repo size":        "Heuristic estimate of repo content size in tokens (~4 chars per token).",
+    # Scorecard pillars
+    "Repo profile":     "Tracked files, text files, and heaviest paths/dirs by estimated tokens.",
+    "Instructions":     "Presence and quality of CLAUDE.md / AGENTS.md (line limits, commands, gotchas, mirror parity).",
+    "Agent config":     "Runtime affordances the repo configures for agents: nested CLAUDE.md layering, .claude/settings.json deny rules, hooks, MCP servers, a codebase map, and instruction-file freshness.",
+    "Tests":            "Test runners, linters, typecheckers, CI configs, coverage tool, and source-to-test mapping.",
+    "Hygiene":          ".gitignore presence, secret-pattern hits in tracked files, and oversized binaries.",
+    "Dev environment":  "Signals of a reproducible dev setup (lockfiles, devcontainer, language version pins, etc.).",
+    "Observability":    "Signals of logging, tracing, metrics, or error reporting wiring.",
+    "Security":         "Signals of security/governance scaffolding (CODEOWNERS, SECURITY.md, dependabot, SAST configs).",
+    "Benchmark":        "Per-task subagent dispatch: outcome, tokens, USD, and wall time on the actual dispatch model.",
+    "Cost":             "Actual subagent USD plus projections at each principal model's list rate (warm and cold).",
+    "Evals":            "Presence of evals/, case files, total cases, item coverage, and case quality issues.",
+    "Skill quality":    "Per-skill SKILL.md presence, frontmatter, description, and line count vs. the ~200-line cap.",
+    "Prompt hygiene":   "Markdown file count, total lines, and any prompts over the 300-line readability threshold.",
+    # Table headers
+    "Path":             "Relative path from the repo root.",
+    "Bytes":            "On-disk size of the file.",
+    "Est. tokens":      "Heuristic token estimate (~4 chars per token); not an exact tokenizer count.",
+    "Dir":              "Top-level directory under the repo root.",
+    "Item":             "Plugin or skill the eval case file targets.",
+    "Cases":            "Number of test cases declared in this eval file.",
+    "Triggers":         "Whether the eval file declares trigger phrases that activate the item under test.",
+    "+/-":              "Positive / negative case counts (cases expected to pass vs. fail).",
+    "Output":           "Number of assertions on the model's output for this eval.",
+    "Missing fixtures": "Fixtures referenced by cases but not found on disk.",
+    "Frontmatter":      "Whether SKILL.md starts with valid YAML frontmatter.",
+    "Description":      "Whether the skill's frontmatter description field is present.",
+    "Lines":            "Line count of the file.",
+    "Outcome":          "Whether the subagent completed, was skipped, or hit its budget.",
+    "Task":             "Benchmark task name (Repo walk, Locate, Trace, Spot, Bug fix, Feature add, Refactor, Write a test).",
+    "Walkability":      "How easily an agent can map this repo. Combines static signals (root dir count, duplicate-named dirs, generated dirs, prefix collisions) with the four description-shaped benchmark tasks (Repo walk, Locate, Trace, Spot) scored on specificity.",
+    "Specificity":      "Orchestrator's judgement of a description-task response: high = concrete + correct count; medium = partial / hedged; low = vague.",
+    "In":               "Input tokens billed for this subagent session.",
+    "Out":              "Output tokens billed for this subagent session.",
+    "Cache read":       "Tokens served from the prompt cache (5-minute TTL) at the cache-read discount.",
+    "USD":              "Total USD billed for this subagent session, model-reported.",
+    "Wall":             "Wall-clock seconds for this subagent dispatch.",
+    "Model":            "Model id whose list rates are applied to project cost.",
+    "Projected USD (warm)": "Cost at this model's rates assuming the same cache-read pattern as the actual run.",
+    "USD (cold)":       "Cost at this model's input rate with no cache hits — first run, or after the 5-minute TTL expires.",
+    "Kind":             "Type of secret pattern matched.",
+    "Plugin / skill":   "Item under coverage (plugin or skill).",
+    "Eval present":     "Whether at least one eval case targets this item.",
+    "Problems":         "Quality issues detected in the eval case file.",
+    # Chips
+    "in-sync":          "Both CLAUDE.md and AGENTS.md exist and content matches.",
+    "drift":            "Both files exist but their content has diverged.",
+    "claude-only":      "Only CLAUDE.md present — AGENTS.md is absent.",
+    "agents-only":      "Only AGENTS.md present — CLAUDE.md is absent.",
+    "missing-both":     "Neither CLAUDE.md nor AGENTS.md was found.",
+    "completed":        "Subagent finished and produced its final message.",
+    "incomplete":       "Subagent exceeded its wall-clock or permission budget.",
+    "skipped":          "No suitable target for this task (e.g. no test directory).",
+    "actual run":       "The model the benchmark actually dispatched on; other rows are projections.",
+    "cheapest":         "Lowest projected cost across the principal models for this token profile.",
+    # Section headers (h2) not already covered above
+    "Scorecard":        "Overall grade, pillar dimensions, and headline KPIs for this run.",
+    "Recommendations":  "Top suggestions derived from the lowest-scoring pillars and detected gaps.",
+    # Subsection headers (h3)
+    "Heaviest paths":   "Largest individual files in the repo by estimated tokens.",
+    "Heaviest top-level dirs": "Top-level directories ranked by estimated token weight.",
+    "Runners":          "Detected test runners (e.g. pytest, jest, go test).",
+    "Linters":          "Detected linters (e.g. ruff, eslint, golangci-lint).",
+    "Typecheckers":     "Detected static type checkers (e.g. mypy, pyright, tsc).",
+    "CI":               "Detected CI configuration files (e.g. GitHub Actions, CircleCI).",
+    "Coverage":         "Coverage tool detection and source-to-test mapping summary.",
+    "Uncovered source modules": "Source modules with no matching test file detected.",
+    "Files":            "Per-file breakdown of eval case files: item targeted, case counts, fixtures.",
+    "Item coverage":    "Whether each plugin/skill has at least one eval case targeting it.",
+    "Case quality issues": "Eval files with structural problems (e.g. missing triggers, missing fixtures).",
+    "Skills":           "Per-SKILL.md breakdown: frontmatter, description, and line count.",
+    "Oversized prompts": "Markdown prompts over the 300-line readability threshold.",
+    "Description-task quality": "Per-task specificity (and Locate path match) for the four description-shaped benchmark tasks.",
+    "Duplicate-named directory pairs": "Directory pairs whose names map to the same canonical bucket (e.g. util/shared/common).",
+    "Generated dirs at repo root": "Generated/build directories present at the repo root (clutter top-level listings).",
+    # Chip glossary keys (referenced via tip())
+    "chip-gitignore":   "Whether a .gitignore file is present at the repo root.",
+    "chip-secret-hits": "Count of tracked files matching secret patterns (API keys, tokens, etc.).",
+    "chip-big-binaries": "Count of large binary files tracked in git (LFS candidates).",
+    "chip-evals-present": "An evals/ directory exists at the repo root.",
+    "chip-case-files":  "Number of eval case files found under evals/.",
+    "chip-total-cases": "Total number of declared test cases across all eval files.",
+    "chip-item-coverage": "Plugins/skills that have at least one eval case targeting them, out of the total.",
+    "chip-case-quality": "Eval files with structural quality issues (missing triggers, fixtures, etc.).",
+    "chip-skill-count": "Number of SKILL.md files detected.",
+    "chip-missing-description": "SKILL.md files missing a frontmatter description field.",
+    "chip-over-skill-lines": "SKILL.md files exceeding the ~200-line readability cap.",
+    "chip-md-files":    "Total markdown files considered for prompt hygiene.",
+    "chip-total-lines": "Sum of lines across all considered markdown files.",
+    "chip-over-prompt-lines": "Markdown files over the 300-line readability threshold.",
+    "chip-root-dirs":   "Number of entries at the repo root (high counts hurt agent walkability).",
+    "chip-dup-names":   "Directory pairs whose names collapse to the same bucket (util/shared/common, etc.).",
+    "chip-generated":   "Generated/build directories present at the repo root.",
+    "chip-prefix-collision": "Common filename prefix shared by a large fraction of files (e.g. all start with the same word).",
+    "chip-signals-score": "Static walkability signals satisfied, out of 4.",
+    "chip-coverage-tool": "Detected coverage tool and its configuration source.",
+    "chip-source-test-map": "Ratio of source modules that have a corresponding test file.",
+    "chip-lines-limit": "Instruction file line count vs. the configured soft limit.",
+    "chip-nested-instructions": "CLAUDE.md / AGENTS.md files found below the repo root — enables layered, scoped context.",
+    "chip-settings-json": ".claude/settings.json present at the repo root.",
+    "chip-deny-rules":  "Number of permissions.deny rules — excludes noise (generated files, vendored code) from agent reads.",
+    "chip-hooks":       "Files under .claude/hooks/ — event-driven automation (Stop, SessionStart, PreToolUse, etc.).",
+    "chip-mcp-servers": "MCP servers declared in .mcp.json — surfaces internal tools, docs, and APIs to the agent.",
+    "chip-codebase-map": "ARCHITECTURE.md / STRUCTURE.md / README with a top-level dir map — compensates for unconventional layouts.",
+    "chip-instructions-age": "Days since the root instruction file was last touched in git history.",
+    "chip-config-score": "Number of agent-runtime affordances configured (nested instructions, deny rules, hooks, MCP servers, map), out of 5.",
+    "chip-commands-doc": "Whether the instructions document common project commands.",
+    "chip-gotchas":     "Whether the instructions call out known gotchas or pitfalls.",
+    "chip-shape":       "Detected repo shape (code repo vs. agent harness) that determines which pillars apply.",
+    "chip-instruction-coverage": "Whether at least one of CLAUDE.md / AGENTS.md is present.",
+    # Hero / scorecard
+    "grade-letter":              "Overall agentic-readiness grade (A–F) summarizing the per-dimension scores below.",
+    # Specificity chip values (used in Benchmark + Walkability tables)
+    "high":                      "High specificity — the response named concrete files/symbols and matched the expected count.",
+    "medium":                    "Medium specificity — partial answer with hedging or rough counts.",
+    "low":                       "Low specificity — vague generalities without concrete names.",
+    # Locate path-match chips
+    "match":                     "Locate task: the agent's answer matched the pre-computed expected path.",
+    "miss":                      "Locate task: the agent's answer did not match the expected path.",
+    # Cost overview chips
+    "chip-cost-orchestrator":    "Model that ran the orchestrator session for this audit.",
+    "chip-cost-subagents":       "Model the benchmark subagents ran on, and total USD billed across those sessions.",
+    "chip-cost-cheapest":        "Cheapest projected cost across principal models, applying their list rates to this audit's token profile.",
+}
+
+
+def tip(key: str) -> str:
+    """Return a ` title="..."` attribute (with leading space) for `key`, or empty string."""
+    text = GLOSSARY.get(key)
+    return f' title="{e(text)}"' if text else ""
+
+
 def tone_for_outcome(outcome: str) -> str:
     o = outcome.lower()
     if o.startswith("complete"):
@@ -644,7 +785,7 @@ def render_scorecard(
          fmt_count(static.get("repo_profile", {}).get("tracked_files"), "tracked file")),
     ]
     kpi_html = "".join(
-        f'<div class="kpi"><div class="label">{e(lbl)}</div>'
+        f'<div class="kpi"><div class="label"{tip(lbl)}>{e(lbl)}</div>'
         f'<div class="value">{val}</div><div class="sub">{e(sub)}</div></div>'
         for lbl, val, sub in kpis
     )
@@ -658,7 +799,7 @@ def render_scorecard(
         pct = grade_to_pct.get(g, 50)
         dims.append(
             f'<div class="dim tone-{e(t)}">'
-            f'<div class="row"><span class="label">{e(s.get("label",""))}</span>'
+            f'<div class="row"><span class="label"{tip(s.get("label",""))}>{e(s.get("label",""))}</span>'
             f'<span class="badge">{e(s.get("grade",""))}</span></div>'
             f'<div class="bar"><i style="width:{pct}%"></i></div>'
             f'</div>'
@@ -676,13 +817,13 @@ def render_scorecard(
 
     shape = (static.get("repo_shape") or {}).get("shape") or "code"
     shape_label = "agent harness" if shape == "agent-harness" else "code repo"
-    shape_chip = f'<span class="chip ok" style="margin-left:8px">shape · {e(shape_label)}</span>'
+    shape_chip = f'<span class="chip ok" style="margin-left:8px"{tip("chip-shape")}>shape · {e(shape_label)}</span>'
 
     return f"""
 <section id="scorecard">
-  <h2>Scorecard</h2>
+  <h2{tip('Scorecard')}>Scorecard</h2>
   <div class="hero tone-{e(tone)}">
-    <div class="grade">{e(grade)}</div>
+    <div class="grade"{tip('grade-letter')}>{e(grade)}</div>
     <div>
       <div class="rationale">{e(rationale)}{shape_chip}</div>
       <div class="kpis">{kpi_html}</div>
@@ -721,8 +862,8 @@ def render_repo_profile(profile: dict) -> str:
     head_paths = paths[:5]
     tail_paths = paths[5:]
     paths_table = (
-        "<table><thead><tr><th>Path</th><th class='num'>Bytes</th>"
-        "<th>Est. tokens</th></tr></thead><tbody>"
+        f"<table><thead><tr><th{tip('Path')}>Path</th><th class='num'{tip('Bytes')}>Bytes</th>"
+        f"<th{tip('Est. tokens')}>Est. tokens</th></tr></thead><tbody>"
         + "".join(path_row(p) for p in head_paths)
         + "</tbody></table>"
     )
@@ -735,23 +876,23 @@ def render_repo_profile(profile: dict) -> str:
         )
 
     dirs_table = (
-        "<table><thead><tr><th>Dir</th><th class='num'>Bytes</th>"
-        "<th>Est. tokens</th></tr></thead><tbody>"
+        f"<table><thead><tr><th{tip('Dir')}>Dir</th><th class='num'{tip('Bytes')}>Bytes</th>"
+        f"<th{tip('Est. tokens')}>Est. tokens</th></tr></thead><tbody>"
         + "".join(dir_row(d) for d in dirs)
         + "</tbody></table>"
     )
 
     return f"""
 <section id="repo-profile">
-  <h2>Repo profile</h2>
+  <h2{tip('Repo profile')}>Repo profile</h2>
   <div class="chiprow">
-    <span class="chip">{fmt_count(profile.get('tracked_files'), 'tracked file')}</span>
-    <span class="chip">{fmt_count(profile.get('text_files'), 'text file')}</span>
-    <span class="chip">~{fmt_tokens(profile.get('est_tokens'))}</span>
+    <span class="chip" title="Files tracked by git in this repo.">{fmt_count(profile.get('tracked_files'), 'tracked file')}</span>
+    <span class="chip" title="Text (non-binary) files among tracked files.">{fmt_count(profile.get('text_files'), 'text file')}</span>
+    <span class="chip" title="Heuristic token estimate for the full text content (~4 chars per token).">~{fmt_tokens(profile.get('est_tokens'))}</span>
   </div>
-  <h3>Heaviest paths</h3>
+  <h3{tip('Heaviest paths')}>Heaviest paths</h3>
   {paths_table}
-  <h3>Heaviest top-level dirs</h3>
+  <h3{tip('Heaviest top-level dirs')}>Heaviest top-level dirs</h3>
   {dirs_table}
 </section>
 """.strip()
@@ -788,23 +929,23 @@ def render_instructions(inst: dict) -> str:
             len_chip = ""
         elif over:
             len_chip = (
-                f'<span class="chip warn">{fmt_int(lines)} / {fmt_int(limit)} lines (over limit)</span>'
+                f'<span class="chip warn"{tip("chip-lines-limit")}>{fmt_int(lines)} / {fmt_int(limit)} lines (over limit)</span>'
             )
         else:
             len_chip = (
-                f'<span class="chip ok">{fmt_int(lines)} / {fmt_int(limit)} lines</span>'
+                f'<span class="chip ok"{tip("chip-lines-limit")}>{fmt_int(lines)} / {fmt_int(limit)} lines</span>'
             )
         cmds_ok = info.get("mentions_commands")
         cmd_chip = (
-            f'<span class="chip {"ok" if cmds_ok else "warn"}">'
+            f'<span class="chip {"ok" if cmds_ok else "warn"}"{tip("chip-commands-doc")}>'
             f'Commands {"documented" if cmds_ok else "not listed"}</span>'
         )
         return (
-            f'<span class="chip ok">{e(label)} · {fmt_bytes(info["bytes"])} · '
+            f'<span class="chip ok" title="Instruction file size, line count, and heading count.">{e(label)} · {fmt_bytes(info["bytes"])} · '
             f'{fmt_count(info["lines"], "line")} · '
             f'{fmt_count(info["headings"], "heading")}</span>'
             f'{len_chip}{cmd_chip}'
-            f'<span class="chip {gotchas}">Gotchas '
+            f'<span class="chip {gotchas}"{tip("chip-gotchas")}>Gotchas '
             f'{"called out" if info.get("mentions_gotchas") else "not called out"}</span>'
         )
 
@@ -813,13 +954,98 @@ def render_instructions(inst: dict) -> str:
 
     return f"""
 <section id="instructions">
-  <h2>Agent instructions</h2>
-  <div class="chiprow"><span class="chip {coverage_tone}">{coverage_label}</span></div>
+  <h2{tip('Instructions')}>Agent instructions</h2>
+  <div class="chiprow"><span class="chip {coverage_tone}"{tip('chip-instruction-coverage')}>{coverage_label}</span></div>
   <div class="chiprow">{file_block("CLAUDE.md", inst.get("claude_md"), agents_present)}</div>
   <div class="chiprow">{file_block("AGENTS.md", inst.get("agents_md"), claude_present)}</div>
-  <div class="chiprow"><span class="chip {parity_tone}">{e(parity)}</span></div>
+  <div class="chiprow"><span class="chip {parity_tone}"{tip(parity_key)}>{e(parity)}</span></div>
 </section>
 """.strip()
+
+
+def render_agent_config(cfg: dict) -> str:
+    nested = cfg.get("nested_instructions") or []
+    hooks = cfg.get("hooks") or []
+    mcp = cfg.get("mcp_servers") or []
+    has_settings = bool(cfg.get("has_settings_json"))
+    deny = int(cfg.get("deny_rules") or 0)
+    allow = int(cfg.get("allow_rules") or 0)
+    map_path = cfg.get("codebase_map_path")
+    age = cfg.get("instructions_age_days")
+    score = int(cfg.get("config_score") or 0)
+
+    def tone(b: bool) -> str:
+        return "ok" if b else "warn"
+
+    chips: list[str] = []
+    chips.append(
+        f'<span class="chip {tone(bool(nested))}"{tip("chip-nested-instructions")}>'
+        f'nested instructions · {len(nested)}</span>'
+    )
+    chips.append(
+        f'<span class="chip {tone(has_settings)}"{tip("chip-settings-json")}>'
+        f'.claude/settings.json · {"present" if has_settings else "missing"}</span>'
+    )
+    chips.append(
+        f'<span class="chip {tone(deny > 0)}"{tip("chip-deny-rules")}>'
+        f'deny rules · {deny}</span>'
+    )
+    if allow:
+        chips.append(
+            f'<span class="chip ok"{tip("chip-deny-rules")}>allow rules · {allow}</span>'
+        )
+    chips.append(
+        f'<span class="chip {tone(bool(hooks))}"{tip("chip-hooks")}>'
+        f'hooks · {len(hooks)}</span>'
+    )
+    chips.append(
+        f'<span class="chip {tone(bool(mcp))}"{tip("chip-mcp-servers")}>'
+        f'MCP servers · {len(mcp)}</span>'
+    )
+    chips.append(
+        f'<span class="chip {tone(bool(map_path))}"{tip("chip-codebase-map")}>'
+        f'codebase map · {e(map_path) if map_path else "missing"}</span>'
+    )
+    if age is None:
+        age_chip = f'<span class="chip warn"{tip("chip-instructions-age")}>instructions age · unknown</span>'
+    else:
+        age_tone = "ok" if age <= 180 else ("warn" if age <= 365 else "bad")
+        age_chip = f'<span class="chip {age_tone}"{tip("chip-instructions-age")}>instructions age · {age}d</span>'
+    chips.append(age_chip)
+    score_tone = "ok" if score >= 3 else ("warn" if score >= 1 else "bad")
+    chips.append(
+        f'<span class="chip {score_tone}"{tip("chip-config-score")}>'
+        f'config score · {score}/5</span>'
+    )
+
+    extras: list[str] = []
+    if nested:
+        rows = "".join(
+            f"<tr><td>{e(n['path'])}</td><td class='num'>{int(n['lines'])}</td>"
+            f"<td>{'yes' if n.get('mentions_commands') else 'no'}</td></tr>"
+            for n in nested
+        )
+        extras.append(
+            f"<h3{tip('chip-nested-instructions')}>Nested instruction files</h3>"
+            f"<table><thead><tr><th{tip('Path')}>Path</th>"
+            f"<th class='num'{tip('Lines')}>Lines</th>"
+            f"<th>Commands?</th></tr></thead><tbody>{rows}</tbody></table>"
+        )
+    if hooks:
+        rows = "".join(f"<tr><td>{e(h)}</td></tr>" for h in hooks)
+        extras.append(
+            f"<h3{tip('chip-hooks')}>Hooks</h3>"
+            f"<table><thead><tr><th>File</th></tr></thead><tbody>{rows}</tbody></table>"
+        )
+    if mcp:
+        rows = "".join(f"<tr><td>{e(s)}</td></tr>" for s in mcp)
+        extras.append(
+            f"<h3{tip('chip-mcp-servers')}>MCP servers</h3>"
+            f"<table><thead><tr><th>Name</th></tr></thead><tbody>{rows}</tbody></table>"
+        )
+
+    body = f'<div class="chiprow">{"".join(chips)}</div>{"".join(extras)}'
+    return f'<section id="agent-config"><h2{tip("Agent config")}>Agent config</h2>{body}</section>'
 
 
 def render_tests(tests: dict) -> str:
@@ -833,11 +1059,11 @@ def render_tests(tests: dict) -> str:
         thr = cov_tool.get("threshold")
         thr_txt = f" · threshold {thr}%" if isinstance(thr, int) else ""
         cov_chip = (
-            f'<span class="chip ok">coverage tool · {e(cov_tool.get("tool", "?"))}'
+            f'<span class="chip ok"{tip("chip-coverage-tool")}>coverage tool · {e(cov_tool.get("tool", "?"))}'
             f' ({e(cov_tool.get("source", "?"))})' + thr_txt + '</span>'
         )
     else:
-        cov_chip = '<span class="chip warn">coverage tool · not detected</span>'
+        cov_chip = f'<span class="chip warn"{tip("chip-coverage-tool")}>coverage tool · not detected</span>'
 
     mapping = tests.get("source_test_mapping") or {}
     n_src = int(mapping.get("n_source") or 0)
@@ -845,31 +1071,31 @@ def render_tests(tests: dict) -> str:
     ratio = float(mapping.get("coverage_ratio") or 0.0)
     uncov = mapping.get("uncovered_modules") or []
     if n_src == 0:
-        map_chip = '<span class="chip warn">source ↔ test · no test files found</span>'
+        map_chip = f'<span class="chip warn"{tip("chip-source-test-map")}>source ↔ test · no test files found</span>'
         map_table = ""
     else:
         tone = "ok" if ratio >= 0.7 else ("warn" if ratio >= 0.3 else "bad")
         map_chip = (
-            f'<span class="chip {tone}">source ↔ test · {n_w}/{n_src} '
+            f'<span class="chip {tone}"{tip("chip-source-test-map")}>source ↔ test · {n_w}/{n_src} '
             f'({int(ratio*100)}%)</span>'
         )
         if uncov:
             rows = "".join(f"<tr><td>{e(m)}</td></tr>" for m in uncov)
             map_table = (
-                f"<h3>Uncovered source modules (first {len(uncov)})</h3>"
-                f"<table><thead><tr><th>Path</th></tr></thead><tbody>{rows}</tbody></table>"
+                f"<h3{tip('Uncovered source modules')}>Uncovered source modules (first {len(uncov)})</h3>"
+                f"<table><thead><tr><th{tip('Path')}>Path</th></tr></thead><tbody>{rows}</tbody></table>"
             )
         else:
             map_table = ""
 
     return f"""
 <section id="tests">
-  <h2>Tests &amp; harness</h2>
-  <h3>Runners</h3><div class="chiprow">{chip_row(tests.get("runners", []), "ok")}</div>
-  <h3>Linters</h3><div class="chiprow">{chip_row(tests.get("linters", []), "ok")}</div>
-  <h3>Typecheckers</h3><div class="chiprow">{chip_row(tests.get("typecheckers", []), "ok")}</div>
-  <h3>CI</h3><div class="chiprow">{chip_row(tests.get("ci_configs", []), "ok")}</div>
-  <h3>Coverage</h3><div class="chiprow">{cov_chip}{map_chip}</div>
+  <h2{tip('Tests')}>Tests &amp; harness</h2>
+  <h3{tip('Runners')}>Runners</h3><div class="chiprow">{chip_row(tests.get("runners", []), "ok")}</div>
+  <h3{tip('Linters')}>Linters</h3><div class="chiprow">{chip_row(tests.get("linters", []), "ok")}</div>
+  <h3{tip('Typecheckers')}>Typecheckers</h3><div class="chiprow">{chip_row(tests.get("typecheckers", []), "ok")}</div>
+  <h3{tip('CI')}>CI</h3><div class="chiprow">{chip_row(tests.get("ci_configs", []), "ok")}</div>
+  <h3{tip('Coverage')}>Coverage</h3><div class="chiprow">{cov_chip}{map_chip}</div>
   {map_table}
 </section>
 """.strip()
@@ -877,39 +1103,39 @@ def render_tests(tests: dict) -> str:
 
 def render_hygiene(hyg: dict) -> str:
     gi = hyg.get("gitignore_present")
-    gi_chip = f'<span class="chip {"ok" if gi else "bad"}">.gitignore · {"present" if gi else "missing"}</span>'
+    gi_chip = f'<span class="chip {"ok" if gi else "bad"}"{tip("chip-gitignore")}>.gitignore · {"present" if gi else "missing"}</span>'
     secrets = hyg.get("secret_hits", []) or []
-    secrets_chip = f'<span class="chip {"bad" if secrets else "ok"}">secret-pattern hits · {len(secrets)}</span>'
+    secrets_chip = f'<span class="chip {"bad" if secrets else "ok"}"{tip("chip-secret-hits")}>secret-pattern hits · {len(secrets)}</span>'
     binaries = hyg.get("big_binaries", []) or []
-    bin_chip = f'<span class="chip {"warn" if binaries else "ok"}">big binaries · {len(binaries)}</span>'
+    bin_chip = f'<span class="chip {"warn" if binaries else "ok"}"{tip("chip-big-binaries")}>big binaries · {len(binaries)}</span>'
     blocks = [f'<div class="chiprow">{gi_chip}{secrets_chip}{bin_chip}</div>']
     if secrets:
         rows = "".join(f"<tr><td>{e(s['path'])}</td><td>{e(s['kind'])}</td></tr>" for s in secrets)
-        blocks.append(f"<h3>Secret-pattern hits</h3><table><thead><tr><th>Path</th><th>Kind</th></tr></thead><tbody>{rows}</tbody></table>")
+        blocks.append(f"<h3{tip('Secret-pattern hits')}>Secret-pattern hits</h3><table><thead><tr><th{tip('Path')}>Path</th><th{tip('Kind')}>Kind</th></tr></thead><tbody>{rows}</tbody></table>")
     if binaries:
         rows = "".join(f"<tr><td>{e(b['path'])}</td><td class='num'>{fmt_bytes(b['bytes'])}</td></tr>" for b in binaries)
-        blocks.append(f"<h3>Big binaries</h3><table><thead><tr><th>Path</th><th class='num'>Bytes</th></tr></thead><tbody>{rows}</tbody></table>")
-    return f'<section id="hygiene"><h2>Hygiene</h2>{"".join(blocks)}</section>'
+        blocks.append(f"<h3{tip('Big binaries')}>Big binaries</h3><table><thead><tr><th{tip('Path')}>Path</th><th class='num'{tip('Bytes')}>Bytes</th></tr></thead><tbody>{rows}</tbody></table>")
+    return f'<section id="hygiene"><h2{tip("Hygiene")}>Hygiene</h2>{"".join(blocks)}</section>'
 
 
-def _signal_section(section_id: str, title: str, signals: list[str]) -> str:
+def _signal_section(section_id: str, title: str, signals: list[str], tip_key: str) -> str:
     if not signals:
         chips = '<span class="chip bad">none detected</span>'
     else:
         chips = "".join(f'<span class="chip ok">{e(s)}</span>' for s in signals)
-    return f'<section id="{section_id}"><h2>{title}</h2><div class="chiprow">{chips}</div></section>'
+    return f'<section id="{section_id}"><h2{tip(tip_key)}>{title}</h2><div class="chiprow">{chips}</div></section>'
 
 
 def render_dev_env(d: dict) -> str:
-    return _signal_section("dev-env", "Dev environment", d.get("signals", []) or [])
+    return _signal_section("dev-env", "Dev environment", d.get("signals", []) or [], "Dev environment")
 
 
 def render_observability(d: dict) -> str:
-    return _signal_section("observability", "Observability", d.get("signals", []) or [])
+    return _signal_section("observability", "Observability", d.get("signals", []) or [], "Observability")
 
 
 def render_security(d: dict) -> str:
-    return _signal_section("security", "Security &amp; governance", d.get("signals", []) or [])
+    return _signal_section("security", "Security &amp; governance", d.get("signals", []) or [], "Security")
 
 
 def render_evals(ev: dict) -> str:
@@ -921,22 +1147,22 @@ def render_evals(ev: dict) -> str:
     uncovered = ev.get("uncovered_items") or []
     quality_issues = ev.get("quality_issues") or []
     if not has_dir:
-        chips = '<span class="chip bad">no <code>evals/</code> directory</span>'
+        chips = '<span class="chip bad"{0}>no <code>evals/</code> directory</span>'.format(tip("chip-evals-present"))
         body = f'<div class="chiprow">{chips}</div>'
-        return f'<section id="evals"><h2>Evals</h2>{body}</section>'
+        return f'<section id="evals"><h2{tip("Evals")}>Evals</h2>{body}</section>'
     chips = (
-        f'<span class="chip ok">evals/ · present</span>'
-        f'<span class="chip {"ok" if n_files else "bad"}">case files · {n_files}</span>'
-        f'<span class="chip {"ok" if n_cases else "warn"}">total cases · {n_cases}</span>'
+        f'<span class="chip ok"{tip("chip-evals-present")}>evals/ · present</span>'
+        f'<span class="chip {"ok" if n_files else "bad"}"{tip("chip-case-files")}>case files · {n_files}</span>'
+        f'<span class="chip {"ok" if n_cases else "warn"}"{tip("chip-total-cases")}>total cases · {n_cases}</span>'
     )
     if coverage:
         n_cov = sum(1 for c in coverage if c.get("covered"))
         cov_tone = "ok" if not uncovered else ("warn" if len(uncovered) <= len(coverage) // 2 else "bad")
         chips += (
-            f'<span class="chip {cov_tone}">item coverage · {n_cov}/{len(coverage)}</span>'
+            f'<span class="chip {cov_tone}"{tip("chip-item-coverage")}>item coverage · {n_cov}/{len(coverage)}</span>'
         )
     q_tone = "ok" if not quality_issues else "warn"
-    chips += f'<span class="chip {q_tone}">case quality issues · {len(quality_issues)}</span>'
+    chips += f'<span class="chip {q_tone}"{tip("chip-case-quality")}>case quality issues · {len(quality_issues)}</span>'
     body = f'<div class="chiprow">{chips}</div>'
     if files:
         rows = "".join(
@@ -952,10 +1178,10 @@ def render_evals(ev: dict) -> str:
             for f in files
         )
         body += (
-            f"<h3>Files</h3><table><thead><tr>"
-            f"<th>Path</th><th>Item</th><th class='num'>Cases</th>"
-            f"<th>Triggers</th><th class='num'>+/-</th>"
-            f"<th class='num'>Output</th><th class='num'>Missing fixtures</th>"
+            f"<h3{tip('Files')}>Files</h3><table><thead><tr>"
+            f"<th{tip('Path')}>Path</th><th{tip('Item')}>Item</th><th class='num'{tip('Cases')}>Cases</th>"
+            f"<th{tip('Triggers')}>Triggers</th><th class='num'{tip('+/-')}>+/-</th>"
+            f"<th class='num'{tip('Output')}>Output</th><th class='num'{tip('Missing fixtures')}>Missing fixtures</th>"
             f"</tr></thead><tbody>{rows}</tbody></table>"
         )
     if coverage:
@@ -964,8 +1190,8 @@ def render_evals(ev: dict) -> str:
             for c in coverage
         )
         body += (
-            f"<h3>Item coverage</h3><table><thead><tr>"
-            f"<th>Plugin / skill</th><th>Eval present</th>"
+            f"<h3{tip('Item coverage')}>Item coverage</h3><table><thead><tr>"
+            f"<th{tip('Plugin / skill')}>Plugin / skill</th><th{tip('Eval present')}>Eval present</th>"
             f"</tr></thead><tbody>{rows}</tbody></table>"
         )
     if quality_issues:
@@ -974,11 +1200,11 @@ def render_evals(ev: dict) -> str:
             for q in quality_issues
         )
         body += (
-            f"<h3>Case quality issues</h3><table><thead><tr>"
-            f"<th>Path</th><th>Problems</th>"
+            f"<h3{tip('Case quality issues')}>Case quality issues</h3><table><thead><tr>"
+            f"<th{tip('Path')}>Path</th><th{tip('Problems')}>Problems</th>"
             f"</tr></thead><tbody>{rows}</tbody></table>"
         )
-    return f'<section id="evals"><h2>Evals</h2>{body}</section>'
+    return f'<section id="evals"><h2{tip("Evals")}>Evals</h2>{body}</section>'
 
 
 def render_skill_quality(sq: dict) -> str:
@@ -987,13 +1213,13 @@ def render_skill_quality(sq: dict) -> str:
     over = sq.get("skills_over_line_limit") or []
     skills = sq.get("skills") or []
     if n == 0:
-        chips = '<span class="chip bad">no <code>SKILL.md</code> files</span>'
+        chips = f'<span class="chip bad"{tip("chip-skill-count")}>no <code>SKILL.md</code> files</span>'
         body = f'<div class="chiprow">{chips}</div>'
     else:
         chips = (
-            f'<span class="chip ok">SKILL.md · {n}</span>'
-            f'<span class="chip {"warn" if missing else "ok"}">missing description · {len(missing)}</span>'
-            f'<span class="chip {"warn" if over else "ok"}">over ~200 lines · {len(over)}</span>'
+            f'<span class="chip ok"{tip("chip-skill-count")}>SKILL.md · {n}</span>'
+            f'<span class="chip {"warn" if missing else "ok"}"{tip("chip-missing-description")}>missing description · {len(missing)}</span>'
+            f'<span class="chip {"warn" if over else "ok"}"{tip("chip-over-skill-lines")}>over ~200 lines · {len(over)}</span>'
         )
         body = f'<div class="chiprow">{chips}</div>'
         if skills:
@@ -1007,12 +1233,12 @@ def render_skill_quality(sq: dict) -> str:
                 for s in skills
             )
             body += (
-                "<h3>Skills</h3><table><thead><tr><th>Path</th>"
-                "<th>Frontmatter</th><th>Description</th>"
-                "<th class='num'>Lines</th></tr></thead>"
+                f"<h3{tip('Skills')}>Skills</h3><table><thead><tr><th{tip('Path')}>Path</th>"
+                f"<th{tip('Frontmatter')}>Frontmatter</th><th{tip('Description')}>Description</th>"
+                f"<th class='num'{tip('Lines')}>Lines</th></tr></thead>"
                 f"<tbody>{rows}</tbody></table>"
             )
-    return f'<section id="skill-quality"><h2>Skill quality</h2>{body}</section>'
+    return f'<section id="skill-quality"><h2{tip("Skill quality")}>Skill quality</h2>{body}</section>'
 
 
 def render_prompt_hygiene(ph: dict) -> str:
@@ -1020,9 +1246,9 @@ def render_prompt_hygiene(ph: dict) -> str:
     total_lines = int(ph.get("total_lines") or 0)
     oversized = ph.get("oversized") or []
     chips = (
-        f'<span class="chip ok">markdown files · {n_md}</span>'
-        f'<span class="chip ok">total lines · {total_lines}</span>'
-        f'<span class="chip {"warn" if oversized else "ok"}">over 300 lines · {len(oversized)}</span>'
+        f'<span class="chip ok"{tip("chip-md-files")}>markdown files · {n_md}</span>'
+        f'<span class="chip ok"{tip("chip-total-lines")}>total lines · {total_lines}</span>'
+        f'<span class="chip {"warn" if oversized else "ok"}"{tip("chip-over-prompt-lines")}>over 300 lines · {len(oversized)}</span>'
     )
     body = f'<div class="chiprow">{chips}</div>'
     if oversized:
@@ -1031,11 +1257,98 @@ def render_prompt_hygiene(ph: dict) -> str:
             for o in oversized
         )
         body += (
-            "<h3>Oversized prompts</h3><table><thead><tr><th>Path</th>"
-            "<th class='num'>Lines</th></tr></thead>"
+            f"<h3{tip('Oversized prompts')}>Oversized prompts</h3><table><thead><tr><th{tip('Path')}>Path</th>"
+            f"<th class='num'{tip('Lines')}>Lines</th></tr></thead>"
             f"<tbody>{rows}</tbody></table>"
         )
-    return f'<section id="prompt-hygiene"><h2>Prompt hygiene</h2>{body}</section>'
+    return f'<section id="prompt-hygiene"><h2{tip("Prompt hygiene")}>Prompt hygiene</h2>{body}</section>'
+
+
+_WALK_DESC_TASKS = {"Repo walk", "Locate", "Trace", "Spot"}
+
+
+def render_walkability(walk: dict, benchmark: list[dict]) -> str:
+    """Render the Walkability pillar: static signals + per-task qualitative
+    scores from the four description-shaped benchmark tasks."""
+    root_count = int(walk.get("root_dir_count") or 0)
+    dup_pairs = walk.get("duplicate_name_pairs") or []
+    generated = walk.get("generated_dirs_present") or []
+    prefix_token = walk.get("prefix_collision_token")
+    prefix_ratio = float(walk.get("prefix_collision_ratio") or 0.0)
+    signals_score = int(walk.get("signals_score") or 0)
+
+    def tone(n: int, warn_at: int, bad_at: int) -> str:
+        if n >= bad_at:
+            return "bad"
+        if n >= warn_at:
+            return "warn"
+        return "ok"
+
+    chips = (
+        f'<span class="chip {tone(root_count, 10, 15)}"{tip("chip-root-dirs")}>root dirs · {root_count}</span>'
+        f'<span class="chip {"bad" if len(dup_pairs) >= 2 else ("warn" if dup_pairs else "ok")}"{tip("chip-dup-names")}>duplicate-name pairs · {len(dup_pairs)}</span>'
+        f'<span class="chip {"warn" if generated else "ok"}"{tip("chip-generated")}>generated at root · {len(generated)}</span>'
+        f'<span class="chip {"warn" if prefix_token else "ok"}"{tip("chip-prefix-collision")}>filename prefix collision · {prefix_token + " (" + str(int(prefix_ratio * 100)) + "%)" if prefix_token else "none"}</span>'
+        f'<span class="chip"{tip("chip-signals-score")}>signals score · {signals_score}/4</span>'
+    )
+    body = f'<div class="chiprow">{chips}</div>'
+
+    extras: list[str] = []
+    if dup_pairs:
+        rows = "".join(
+            f"<tr><td>{e(p[0])}</td><td>{e(p[1])}</td></tr>" for p in dup_pairs
+        )
+        extras.append(
+            f"<h3{tip('Duplicate-named directory pairs')}>Duplicate-named directory pairs</h3>"
+            "<p class='muted'>Both names map to the same canonical bucket (e.g. <span class='kbd'>util</span>/<span class='kbd'>shared</span>/<span class='kbd'>common</span>) — agents can't tell which one owns what without reading both.</p>"
+            f"<table><thead><tr><th>Dir A</th><th>Dir B</th></tr></thead><tbody>{rows}</tbody></table>"
+        )
+    if generated:
+        items = "".join(f"<li><span class='kbd'>{e(g)}</span></li>" for g in generated)
+        extras.append(
+            f"<h3{tip('Generated dirs at repo root')}>Generated dirs at repo root</h3>"
+            "<p class='muted'>These crowd the top-level listing on every agent read.</p>"
+            f"<ul>{items}</ul>"
+        )
+
+    # Per-task panel: pull specificity + (for Locate) path_match from the matrix.
+    task_rows = []
+    for task in benchmark:
+        name = task.get("task", "")
+        if name not in _WALK_DESC_TASKS:
+            continue
+        spec = (task.get("specificity") or "—").lower()
+        spec_tone = {"high": "ok", "medium": "warn", "low": "bad"}.get(spec, "")
+        outcome = task.get("outcome", "")
+        path_match = task.get("path_match")
+        match_cell = ""
+        if name == "Locate":
+            if path_match is True:
+                match_cell = f"<span class='chip ok'{tip('match')}>match</span>"
+            elif path_match is False:
+                match_cell = f"<span class='chip bad'{tip('miss')}>miss</span>"
+            else:
+                match_cell = "<span class='muted'>—</span>"
+        else:
+            match_cell = "<span class='muted'>n/a</span>"
+        outcome_tip = tip(outcome.lower().split(":", 1)[0].strip()) or f' title="{e(outcome)}"'
+        task_rows.append(
+            "<tr>"
+            f"<td>{e(name)}</td>"
+            f"<td><span class='chip {tone_for_outcome(outcome)}'{outcome_tip}>{e(outcome)}</span></td>"
+            f"<td><span class='chip {spec_tone}'{tip(spec)}>{e(spec)}</span></td>"
+            f"<td>{match_cell}</td>"
+            "</tr>"
+        )
+    if task_rows:
+        extras.append(
+            f"<h3{tip('Description-task quality')}>Description-task quality</h3>"
+            "<p class='muted'>Specificity is the orchestrator's judgement after reading the subagent's final message: <em>high</em> = concrete names + correct count; <em>medium</em> = partial, some hedging; <em>low</em> = vague generalities. Locate also gets <em>match</em>/<em>miss</em> against the pre-computed answer path.</p>"
+            "<table><thead><tr><th>Task</th><th>Outcome</th><th>Specificity</th><th>Path match</th></tr></thead>"
+            f"<tbody>{''.join(task_rows)}</tbody></table>"
+        )
+
+    return f'<section id="walkability"><h2{tip("Walkability")}>Walkability</h2>{body}{"".join(extras)}</section>'
 
 
 def render_benchmark(benchmark: list[dict], usage: dict, actual_model: str | None, orchestrator_model: str | None = None) -> str:
@@ -1051,10 +1364,17 @@ def render_benchmark(benchmark: list[dict], usage: dict, actual_model: str | Non
         wall = float(task.get("wall_clock_s") or 0.0)
         usd_pct = 100.0 * usd / max_usd
         wall_pct = 100.0 * wall / max_wall
+        spec = (task.get("specificity") or "").lower()
+        spec_tone = {"high": "ok", "medium": "warn", "low": "bad"}.get(spec, "")
+        spec_cell = (
+            f"<span class='chip {spec_tone}'{tip(spec)}>{e(spec)}</span>" if spec
+            else "<span class='muted'>—</span>"
+        )
         rows.append(
             "<tr>"
-            f"<td><span class='chip {tone_for_outcome(outcome)}' title='{e(outcome)}'>{e(outcome)}</span></td>"
+            f"<td><span class='chip {tone_for_outcome(outcome)}'{tip(outcome.lower().split(':', 1)[0].strip()) or (' title=' + chr(34) + e(outcome) + chr(34))}>{e(outcome)}</span></td>"
             f"<td>{e(task.get('task',''))}</td>"
+            f"<td>{spec_cell}</td>"
             f"<td class='num'>{fmt_tokens(u.get('input_tokens'))}</td>"
             f"<td class='num'>{fmt_tokens(u.get('output_tokens'))}</td>"
             f"<td class='num'>{fmt_tokens(u.get('cache_read_input_tokens'))}</td>"
@@ -1073,11 +1393,13 @@ def render_benchmark(benchmark: list[dict], usage: dict, actual_model: str | Non
     else:
         note = '<p class="muted">Per-task cost is on the subagent dispatch model. The Cost section projects what the same token profile would cost on other models.</p>'
     return (
-        '<section id="benchmark"><h2>Benchmark</h2>'
+        f'<section id="benchmark"><h2{tip("Benchmark")}>Benchmark</h2>'
         + note
         + "<table><thead><tr>"
-        "<th>Outcome</th><th>Task</th><th class='num'>In</th><th class='num'>Out</th>"
-        "<th class='num'>Cache read</th><th>USD</th><th>Wall</th>"
+        f"<th{tip('Outcome')}>Outcome</th><th{tip('Task')}>Task</th>"
+        f"<th{tip('Specificity')}>Specificity</th>"
+        f"<th class='num'{tip('In')}>In</th><th class='num'{tip('Out')}>Out</th>"
+        f"<th class='num'{tip('Cache read')}>Cache read</th><th{tip('USD')}>USD</th><th{tip('Wall')}>Wall</th>"
         "</tr></thead><tbody>"
         + "".join(rows)
         + "</tbody></table></section>"
@@ -1117,9 +1439,9 @@ def render_cost(benchmark: list[dict], usage: dict, est_tokens: int, actual_mode
         is_actual = mid == actual_model
         marks = []
         if is_actual:
-            marks.append('<span class="chip">actual run</span>')
+            marks.append(f'<span class="chip"{tip("actual run")}>actual run</span>')
         if is_cheap:
-            marks.append('<span class="chip ok">cheapest</span>')
+            marks.append(f'<span class="chip ok"{tip("cheapest")}>cheapest</span>')
         pct = 100.0 * (v / proj_max) if v is not None else 0.0
         cold_pct = 100.0 * (cold / cold_max) if cold is not None else 0.0
         tone = "ok" if is_cheap else ""
@@ -1143,23 +1465,23 @@ def render_cost(benchmark: list[dict], usage: dict, est_tokens: int, actual_mode
 
     actual_label = friendly_model(actual_model) if actual_model else "subagent dispatch model"
     orch_chip = (
-        f'<span class="chip">Orchestrator · <span class="kbd">{e(friendly_model(orchestrator_model))}</span></span>'
+        f'<span class="chip"{tip("chip-cost-orchestrator")}>Orchestrator · <span class="kbd">{e(friendly_model(orchestrator_model))}</span></span>'
         if orchestrator_model and orchestrator_model != actual_model else ""
     )
 
     return f"""
 <section id="cost">
-  <h2>Cost</h2>
+  <h2{tip('Cost')}>Cost</h2>
   <div class="chiprow">
     {orch_chip}
-    <span class="chip">Subagents · <span class="kbd">{e(actual_label)}</span> · {fmt_usd(actual_usd)}</span>
-    {('<span class="chip ok">Cheapest projection · ' + e(friendly_model(cheapest[0]) if cheapest[0] else "?") + ' · ' + fmt_usd(cheapest[1]) + '</span>') if cheapest[1] is not None else '<span class="chip warn">Projection unavailable</span>'}
+    <span class="chip"{tip('chip-cost-subagents')}>Subagents · <span class="kbd">{e(actual_label)}</span> · {fmt_usd(actual_usd)}</span>
+    {('<span class="chip ok"' + tip('chip-cost-cheapest') + '>Cheapest projection · ' + e(friendly_model(cheapest[0]) if cheapest[0] else "?") + ' · ' + fmt_usd(cheapest[1]) + '</span>') if cheapest[1] is not None else '<span class="chip warn">Projection unavailable</span>'}
   </div>
   <h3>Projection · same token profile, each principal model</h3>
   <p class="muted">The benchmark fires one dispatch per task, so all four cells ran on <span class="kbd">{e(actual_label)}</span>. Below applies each model's list rates to that same token profile — useful for "what would this cost on Haiku?" estimates, but caching behaviour differs across models, so treat as a guide. <strong>Cold</strong> = no cache hits; what the first run (or the first run after the 5-minute prompt-cache TTL expires) costs at list input rate.</p>
-  <table><thead><tr><th>Model</th><th>Projected USD (warm)</th><th>USD (cold)</th></tr></thead><tbody>{proj_rows}</tbody></table>
+  <table><thead><tr><th{tip('Model')}>Model</th><th{tip('Projected USD (warm)')}>Projected USD (warm)</th><th{tip('USD (cold)')}>USD (cold)</th></tr></thead><tbody>{proj_rows}</tbody></table>
   <h3>Est. cost to load full repo into context <span class="muted">(input-only, heuristic)</span></h3>
-  <table><thead><tr><th>Model</th><th class='num'>Est. tokens</th><th>USD</th></tr></thead><tbody>{load_rows}</tbody></table>
+  <table><thead><tr><th{tip('Model')}>Model</th><th class='num'{tip('Est. tokens')}>Est. tokens</th><th{tip('USD')}>USD</th></tr></thead><tbody>{load_rows}</tbody></table>
 </section>
 """.strip()
 
@@ -1168,7 +1490,7 @@ def render_recommendations(recs: list[str]) -> str:
     items = "".join(f"<li>{e(r)}</li>" for r in recs[:5])
     if not items:
         items = '<li class="muted">No recommendations — repo looks ready.</li>'
-    return f'<section id="recommendations"><h2>Recommendations</h2><ol class="recs">{items}</ol></section>'
+    return f'<section id="recommendations"><h2{tip("Recommendations")}>Recommendations</h2><ol class="recs">{items}</ol></section>'
 
 
 # ---- top-level ----------------------------------------------------------
@@ -1185,7 +1507,9 @@ def build_html(static: dict, usage: dict, matrix: dict) -> str:
         nav_links = [
             ("scorecard",       "Scorecard"),
             ("repo-profile",    "Repo profile"),
+            ("walkability",     "Walkability"),
             ("instructions",    "Agent instructions"),
+            ("agent-config",    "Agent config"),
             ("evals",           "Evals"),
             ("hygiene",         "Hygiene"),
             ("skill-quality",   "Skill quality"),
@@ -1199,7 +1523,9 @@ def build_html(static: dict, usage: dict, matrix: dict) -> str:
         nav_links = [
             ("scorecard",       "Scorecard"),
             ("repo-profile",    "Repo profile"),
+            ("walkability",     "Walkability"),
             ("instructions",    "Agent instructions"),
+            ("agent-config",    "Agent config"),
             ("tests",           "Tests &amp; harness"),
             ("hygiene",         "Hygiene"),
             ("dev-env",         "Dev environment"),
@@ -1229,7 +1555,9 @@ def build_html(static: dict, usage: dict, matrix: dict) -> str:
     sections = [
         render_scorecard(matrix, static, usage, actual_model, orchestrator_model, warnings),
         render_repo_profile(static.get("repo_profile", {})),
+        render_walkability(static.get("walkability", {}), matrix.get("benchmark", [])),
         render_instructions(static.get("agent_instructions", {})),
+        render_agent_config(static.get("agent_config", {})),
     ]
     if shape == "agent-harness":
         sections += [

@@ -53,13 +53,13 @@ Output rule when asking: one line `§N <Section name>` (or a combined header lik
 Once every section has a body (drafted silently or answered):
 
 1. If `./.specs/` does not exist, run `mkdir -p ./.specs`. `Write` the full spec to `./.specs/<slug>.md` in one call, assembling the template with each held section body in place.
-2. Print the spec path on its own line in `file_path:line_number` form (e.g. `./.specs/<slug>.md:1`) so the TUI renders it as a clickable link.
+2. Print one line: `🧾  Spec ready: ./.specs/<slug>.md:1` (use the exact `file_path:line_number` form so the TUI renders the path as a clickable link). Status lines are emoji-prefixed, capitalized, and describe the activity generically — never name a specific guide id, provider, or model.
 3. Call `ExitPlanMode`. The spec file *is* the plan — `ExitPlanMode` reads it and prompts the user for approval natively. Pass `allowedPrompts` derived from §4 Success criteria & verification (e.g. `{tool: "Bash", prompt: "run tests"}`, `{tool: "Bash", prompt: "run lint and typecheck"}`) so common implementation actions are pre-authorized.
 
 Branch on the user's response:
 
 - **On approval**: continue in the same session and implement the spec at `./.specs/<slug>.md`. The spec is now the active implementation plan.
-- **On rejection**: the user's free-form feedback indicates what to revise. Parse which section(s) it targets, ask only the questions needed to resolve the feedback (or just redraft if the feedback is concrete enough), update the held bodies, re-`Write` the full spec, re-print the clickable spec path, and call `ExitPlanMode` again.
+- **On rejection**: the user's free-form feedback indicates what to revise. Parse which section(s) it targets, ask only the questions needed to resolve the feedback (or just redraft if the feedback is concrete enough), update the held bodies, re-`Write` the full spec, re-print the `🧾  Spec ready: …` line, and call `ExitPlanMode` again.
 - **On discard**: if the feedback is "discard" or equivalent, delete `./.specs/<slug>.md` and stop.
 
 ## Reference

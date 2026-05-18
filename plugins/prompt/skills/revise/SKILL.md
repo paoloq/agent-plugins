@@ -10,8 +10,9 @@ Only revise. Drafting brand-new prompts belongs to the `draft` skill, and produc
 ## Token discipline
 
 - Keep the source prompt, guides, and revised file out of chat — the user reads the file.
-- Per revision turn = one line `✏️  <Section> · <unit label>` + one `AskUserQuestion` call. Nothing else.
-- Auto-skips (unchanged text, section not applicable) = one line `⏭️  <Section> · <unit> — <reason>`.
+- Status lines describe the activity generically and use capitalized sentences — never name a specific guide id, provider, or model.
+- Per revision turn = one line `✏️  <Section> · <Unit label>` + one `AskUserQuestion` call. Nothing else.
+- Auto-skips (unchanged text, section not applicable) = one line `⏭️  <Section> · <Unit> — <Reason>`.
 - Finalize prints one line: `🎉  <path>` — clickable working-file path, nothing else.
 
 ## Workflow
@@ -72,7 +73,7 @@ Walk the source prompt section by section. For each section, identify the units 
 
 For each candidate unit:
 
-- If the proposed revised text is identical (case + whitespace insensitive) to the source, auto-skip with one line `⏭️  <Section> · <unit> — no change needed`. Save the widget for changes that matter.
+- If the proposed revised text is identical (case + whitespace insensitive) to the source, auto-skip with one line `⏭️  <Section> · <Unit> — No change needed`. Save the widget for changes that matter.
 - If two guides give contradictory guidance for the same unit, surface both in the `AskUserQuestion` `question` field as one sentence (e.g. "OpenAI § X says A; Anthropic § Y says B") and let the user pick or supply `Other`. Never blend silently.
 - If a wholly new section is needed (e.g. a missing `Stop rules` block flagged Critical), first ask one Approve/Skip `AskUserQuestion` for the section heading itself, then walk its units like any other section.
 
@@ -82,7 +83,7 @@ Seed the working file with the source prompt's full text up front (via `Write`),
 
 For each unit, in order:
 
-1. Print one line: `✏️  <Section> · <unit label>` (e.g. `✏️  Goal · tighten success bar`, `✏️  Constraints · add untrusted-input rule`).
+1. Print one line: `✏️  <Section> · <Unit label>` (e.g. `✏️  Goal · Tightening success bar`, `✏️  Constraints · Adding untrusted-input rule`).
 2. Ask one `AskUserQuestion` with one sub-question:
    - `header`: ≤12-char tag (e.g. `Goal`, `Schema`, `Tools`).
    - `question`: the unit label and one sentence on what the unit changes. When the change is guide-anchored, append one short sentence naming the guide source (e.g. "Anchored on Anthropic's tool-use posture guidance, § X."). When two guides conflict on this unit, surface both in this sentence.

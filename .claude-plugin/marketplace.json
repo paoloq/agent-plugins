@@ -29,6 +29,14 @@
       "version": "0.1.0",
       "category": "repo-management",
       "tags": ["repo", "audit", "readiness", "assessment"]
+    },
+    {
+      "name": "code",
+      "source": "./plugins/code",
+      "description": "Tools for assessing and improving source code. Ships the `review` skill.",
+      "version": "0.1.0",
+      "category": "code-quality",
+      "tags": ["code", "review", "audit", "refactor", "quality"]
     }
   ]
 }

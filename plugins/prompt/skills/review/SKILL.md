@@ -10,7 +10,7 @@ Only assess. Rewrites are a separate task — hand them off to the `revise` skil
 ## Token discipline
 
 - Keep the prompt, guides, and report body out of chat — the user reads the file.
-- Status lines are at most one line each, emoji-prefixed (e.g. `📖  anthropic-claude-4`, `🧪  assessing` while walking guides).
+- Status lines are at most one line each, emoji-prefixed and describe the activity generically — never name a specific guide id, provider, or model (e.g. `📖  Reading guides`, `🧪  Assessing prompt`, `📝  Drafting interventions`).
 - On completion, print one line: `🧾  <path>` — clickable HTML path, nothing else.
 
 ## Workflow

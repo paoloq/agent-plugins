@@ -170,6 +170,37 @@ TYPECHECK_SIGNALS = {
     "flow":       [".flowconfig"],
 }
 
+# Tools that ship their config inside a shared manifest (pyproject.toml,
+# package.json) instead of a dedicated dotfile. Substring-matched against the
+# manifest text, lowercased. Walked across the whole tree so monorepos with
+# nested service folders (e.g. `services/api/pyproject.toml`) are picked up.
+PYPROJECT_LINT_TOKENS = {
+    "ruff":     ["[tool.ruff"],
+    "flake8":   ["[tool.flake8", "[flake8]"],
+    "black":    ["[tool.black"],
+    "isort":    ["[tool.isort"],
+    "pylint":   ["[tool.pylint"],
+}
+PYPROJECT_TYPECHECK_TOKENS = {
+    "mypy":     ["[tool.mypy", "[mypy]"],
+    "pyright":  ["[tool.pyright"],
+    "ty":       ["[tool.ty]", "[tool.ty."],
+    "pyre":     ["[tool.pyre"],
+    "pytype":   ["[tool.pytype"],
+}
+PACKAGE_JSON_LINT_TOKENS = {
+    "eslint":   ['"eslint"', '"eslintconfig"', '"@eslint/'],
+    "prettier": ['"prettier"'],
+    "biome":    ['"@biomejs/biome"'],
+}
+PACKAGE_JSON_TYPECHECK_TOKENS = {
+    "tsc":      ['"typescript"'],
+    "flow":     ['"flow-bin"'],
+}
+
+PYPROJECT_MANIFEST_NAMES = ("pyproject.toml", "setup.cfg", "tox.ini")
+PACKAGE_JSON_MANIFEST_NAMES = ("package.json",)
+
 # Pillar coverage. Each table is a presence probe — the point is "does the
 # repo show evidence of this practice", not deep analysis. Signal breadth is
 # modelled on Kodus's agent-readiness (the OSS reference) and Factory.ai's
@@ -356,6 +387,45 @@ class PromptHygiene:
     n_md_files: int = 0
     total_lines: int = 0
     oversized: list[dict] = field(default_factory=list)
+
+
+@dataclass
+class AgentConfig:
+    # CLAUDE.md / AGENTS.md found anywhere below the root (excluding the root
+    # files already surfaced under `agent_instructions`). Layered context is
+    # the article's #1 recommendation for large codebases.
+    nested_instructions: list[dict] = field(default_factory=list)
+    nested_with_commands: int = 0
+    # `.claude/settings.json` presence + permission rule counts. Deny rules
+    # are how the article tells teams to exclude noise (node_modules, dist…)
+    # from agent context so it doesn't bloat reads.
+    has_settings_json: bool = False
+    deny_rules: int = 0
+    allow_rules: int = 0
+    # Hook files under `.claude/hooks/`. The article specifically calls out
+    # Stop / SessionStart hooks for self-improving CLAUDE.md and dynamic
+    # context loading.
+    hooks: list[str] = field(default_factory=list)
+    # MCP servers declared in `.mcp.json` (root or `.claude/`).
+    mcp_servers: list[str] = field(default_factory=list)
+    # Codebase map for unconventional layouts.
+    has_codebase_map: bool = False
+    codebase_map_path: str | None = None
+    # Age of the most-recently-touched root instruction file (git log).
+    instructions_age_days: int | None = None
+    # Convenience: how many configured "runtime affordances" exist.
+    config_score: int = 0
+
+
+@dataclass
+class Walkability:
+    root_dir_count: int = 0
+    root_dirs: list[str] = field(default_factory=list)
+    duplicate_name_pairs: list[list[str]] = field(default_factory=list)
+    generated_dirs_present: list[str] = field(default_factory=list)
+    prefix_collision_ratio: float = 0.0
+    prefix_collision_token: str | None = None
+    signals_score: int = 0
 
 
 # Repo-shape detection. Agent-harness repos (plugin marketplaces, skill libs,
@@ -639,21 +709,71 @@ COVERAGE_THRESHOLD_RE = re.compile(
 )
 
 
+def _walk_manifest_files(repo: Path, basenames: tuple[str, ...] | list[str]) -> list[Path]:
+    """Return every file in `repo` whose basename is in `basenames`, walking
+    nested directories with the same EXCLUDE_DIRS filter `_marker_present`
+    uses. Monorepos commonly nest manifests under `services/*/pyproject.toml`
+    or `packages/*/package.json`; a root-only scan misses those tools entirely.
+    """
+    wanted = set(basenames)
+    out: list[Path] = []
+    for dirpath, dirs, files in os.walk(repo):
+        dirs[:] = [d for d in dirs if d not in EXCLUDE_DIRS and not d.startswith(".")]
+        for fname in files:
+            if fname in wanted:
+                out.append(Path(dirpath) / fname)
+    return out
+
+
+def _scan_files_for_tokens(files: list[Path], tokens_table: dict[str, list[str]]) -> set[str]:
+    hits: set[str] = set()
+    for p in files:
+        low = _read_text_safe(p).lower()
+        if not low:
+            continue
+        for label, tokens in tokens_table.items():
+            if label in hits:
+                continue
+            if any(tok.lower() in low for tok in tokens):
+                hits.add(label)
+    return hits
+
+
+def scan_manifest_lint_tokens(repo: Path) -> list[str]:
+    py_files = _walk_manifest_files(repo, PYPROJECT_MANIFEST_NAMES)
+    js_files = _walk_manifest_files(repo, PACKAGE_JSON_MANIFEST_NAMES)
+    return sorted(
+        _scan_files_for_tokens(py_files, PYPROJECT_LINT_TOKENS)
+        | _scan_files_for_tokens(js_files, PACKAGE_JSON_LINT_TOKENS)
+    )
+
+
+def scan_manifest_typecheck_tokens(repo: Path) -> list[str]:
+    py_files = _walk_manifest_files(repo, PYPROJECT_MANIFEST_NAMES)
+    js_files = _walk_manifest_files(repo, PACKAGE_JSON_MANIFEST_NAMES)
+    return sorted(
+        _scan_files_for_tokens(py_files, PYPROJECT_TYPECHECK_TOKENS)
+        | _scan_files_for_tokens(js_files, PACKAGE_JSON_TYPECHECK_TOKENS)
+    )
+
+
 def detect_coverage_tool(repo: Path) -> dict | None:
     """Best-effort detection of a coverage-tool configuration. Returns the
     first matching tool with the source file and any threshold we could parse;
-    None if no signal. Substring match is deliberate — `pyproject.toml` may
-    host coverage.py config under `[tool.coverage.*]` headers that a strict
-    parser would have to special-case per language."""
+    None if no signal. Walks nested manifests so monorepos with per-service
+    `pyproject.toml` / `package.json` aren't missed. Substring match is
+    deliberate — `pyproject.toml` may host coverage.py config under
+    `[tool.coverage.*]` headers that a strict parser would have to
+    special-case per language."""
     for tool, candidates in COVERAGE_CONFIG_FILES.items():
+        tokens = COVERAGE_TOOL_TOKENS[tool]
+        seen: list[Path] = []
         for fname in candidates:
-            p = repo / fname
-            if not p.is_file():
-                continue
+            seen.extend(_walk_manifest_files(repo, (fname,)))
+        for p in seen:
             text = _read_text_safe(p)
             if not text:
                 continue
-            tokens = COVERAGE_TOOL_TOKENS[tool]
             if not any(tok.lower() in text.lower() for tok in tokens):
                 continue
             threshold = None
@@ -663,7 +783,11 @@ def detect_coverage_tool(repo: Path) -> dict | None:
                     threshold = int(m.group(1))
                 except ValueError:
                     threshold = None
-            return {"tool": tool, "source": fname, "threshold": threshold}
+            return {
+                "tool": tool,
+                "source": p.relative_to(repo).as_posix(),
+                "threshold": threshold,
+            }
     return None
 
 
@@ -684,6 +808,10 @@ def _is_in_test_dir(p: Path) -> bool:
     return any(part in TEST_DIR_NAMES for part in p.parts)
 
 
+def _matches_test_filename(name: str) -> bool:
+    return any(pat.match(name) for pat in TEST_FILE_PATTERNS)
+
+
 def _is_in_source_dir(p: Path, repo: Path) -> bool:
     rel = p.relative_to(repo)
     if rel.parts[0].startswith("."):
@@ -692,6 +820,10 @@ def _is_in_source_dir(p: Path, repo: Path) -> bool:
         return False
     if _is_in_test_dir(rel):
         return False
+    # Colocated tests (`foo.test.ts` next to `foo.ts`) are common in JS/TS;
+    # they must not be counted as source modules in their own right.
+    if _matches_test_filename(p.name):
+        return False
     # Skip nested plugin/example trees that ship their own non-app code —
     # they'd dominate the ratio with files no test could plausibly cover.
     if "examples" in rel.parts or "fixtures" in rel.parts:
@@ -699,15 +831,12 @@ def _is_in_source_dir(p: Path, repo: Path) -> bool:
     return True
 
 
-def _test_stems(repo: Path, files: list[Path]) -> set[str]:
+def _test_stems(files: list[Path]) -> set[str]:
+    # Match by filename pattern regardless of directory: many ecosystems
+    # (JS/TS, Go, Rust) colocate tests next to source, so the test-dir gate
+    # would miss them entirely.
     stems: set[str] = set()
     for p in files:
-        try:
-            rel = p.relative_to(repo)
-        except ValueError:
-            continue
-        if not _is_in_test_dir(rel):
-            continue
         for pat in TEST_FILE_PATTERNS:
             m = pat.match(p.name)
             if m:
@@ -722,7 +851,7 @@ def audit_source_test_mapping(repo: Path, files: list[Path]) -> dict:
     Heuristic only: covers Python / JS / TS / Go / Ruby naming conventions.
     Reports `n_source`, `n_with_test`, `coverage_ratio`, and up to 20
     uncovered module paths so the report stays bounded."""
-    stems = _test_stems(repo, files)
+    stems = _test_stems(files)
     if not stems:
         return {"n_source": 0, "n_with_test": 0, "coverage_ratio": 0.0,
                 "uncovered_modules": []}
@@ -949,19 +1078,10 @@ def scan_security_ci_tokens(repo: Path) -> list[str]:
 def scan_observability_deps(repo: Path) -> list[str]:
     """Scan dependency manifests for telemetry/observability SDK names. The
     most reliable observability signal for cloud-native repos that ship no
-    standalone config file alongside the SDK."""
-    hits: set[str] = set()
-    for name in OBSERVABILITY_DEP_FILES:
-        p = repo / name
-        if not p.exists():
-            continue
-        low = _read_text_safe(p).lower()
-        if not low:
-            continue
-        for label, tokens in OBSERVABILITY_DEP_TOKENS.items():
-            if any(t.lower() in low for t in tokens):
-                hits.add(label)
-    return sorted(hits)
+    standalone config file alongside the SDK. Walks nested manifests so
+    monorepo subservices are covered."""
+    files = _walk_manifest_files(repo, tuple(OBSERVABILITY_DEP_FILES))
+    return sorted(_scan_files_for_tokens(files, OBSERVABILITY_DEP_TOKENS))
 
 
 def detect_ci(repo: Path) -> list[str]:
@@ -1015,6 +1135,322 @@ def find_big_binaries(repo: Path, files: list[Path]) -> list[dict]:
     return out[:MAX_HEAVIEST]
 
 
+# ---- Walkability ---------------------------------------------------------
+
+# Root-level dir names that are almost always generated/build/cache output.
+# Their presence at the top level hurts walkability — they crowd the listing
+# and force every reader to skim them before finding source.
+_WALKABILITY_GENERATED_DIRS = {
+    "cdk.out", "dist", "build", "out", "target", "node_modules",
+    "__pycache__", ".next", ".nuxt", ".cache", ".turbo", "coverage",
+    ".pytest_cache", ".mypy_cache", ".ruff_cache", ".tox", "vendor",
+    ".gradle", ".idea", ".vscode",
+}
+
+# Stem normalization for duplicate-name detection. Maps morphological
+# variations to a canonical token. The goal is to flag pairs like
+# `utility` vs `utils` vs `util`, or `shared_utils` vs `shared` vs `common`.
+_WALKABILITY_STEM_MAP = {
+    # util / shared / common / lib variants all flag the same anti-pattern:
+    # an unscoped "miscellaneous helpers" bucket. Bucket them together so a
+    # repo that has both `utility/` and `shared_utils/` gets flagged.
+    "util": "shared_util", "utils": "shared_util", "utility": "shared_util",
+    "utilities": "shared_util", "helper": "shared_util", "helpers": "shared_util",
+    "shared": "shared_util", "shared_utils": "shared_util",
+    "shared_util": "shared_util", "common": "shared_util",
+    "lib": "shared_util", "libs": "shared_util",
+    "config": "config", "configs": "config", "configuration": "config",
+    "config_files": "config", "settings": "config", "conf": "config",
+    "test": "test", "tests": "test", "__tests__": "test", "spec": "test",
+    "specs": "test",
+    "script": "script", "scripts": "script", "bin": "script", "tools": "script",
+    "doc": "doc", "docs": "doc", "documentation": "doc",
+    "asset": "asset", "assets": "asset", "static": "asset", "public": "asset",
+    "service": "service", "services": "service",
+    "model": "model", "models": "model",
+    "view": "view", "views": "view",
+    "controller": "controller", "controllers": "controller",
+    "handler": "handler", "handlers": "handler",
+}
+
+
+def _normalize_dir_stem(name: str) -> str:
+    """Lowercase + strip trailing digits/version markers, then map through
+    the stem table. Returns the original lowercase name if no mapping
+    applies."""
+    n = name.lower().lstrip(".")
+    n = re.sub(r"[_-]?v?\d+$", "", n)
+    return _WALKABILITY_STEM_MAP.get(n, n)
+
+
+def audit_walkability(repo: Path, files: list[Path]) -> Walkability:
+    """Surface signals that make a repo hard for an agent to walk:
+    too many root dirs, duplicate-purpose dirs, generated dirs at root,
+    and filename prefixes that act as visual noise."""
+    try:
+        root_entries = [p for p in repo.iterdir() if p.is_dir()]
+    except OSError:
+        return Walkability()
+
+    visible_dirs: list[Path] = []
+    generated: list[str] = []
+    for d in root_entries:
+        name = d.name
+        if name.startswith(".") and name not in {".github", ".claude"}:
+            # Hide most dotdirs; .github / .claude are signal, not noise.
+            continue
+        if name in _WALKABILITY_GENERATED_DIRS:
+            generated.append(name)
+            continue
+        visible_dirs.append(d)
+
+    root_dirs = sorted(d.name for d in visible_dirs)
+
+    # Duplicate-name pairs: bucket by normalized stem and report any bucket
+    # with ≥2 entries. The output is a list of [a, b] pairs from each bucket.
+    buckets: dict[str, list[str]] = {}
+    for name in root_dirs:
+        stem = _normalize_dir_stem(name)
+        buckets.setdefault(stem, []).append(name)
+    duplicate_pairs: list[list[str]] = []
+    for names in buckets.values():
+        if len(names) >= 2:
+            # Emit every unordered pair so the report can list them all.
+            for i in range(len(names)):
+                for j in range(i + 1, len(names)):
+                    duplicate_pairs.append([names[i], names[j]])
+
+    # Prefix collision: fraction of code files whose basename starts with
+    # the most common leading underscore-separated token. A high ratio means
+    # filenames carry redundant project-prefix noise (e.g. `complaion_*.py`).
+    code_files = [f for f in files if f.suffix.lower() in {
+        ".py", ".js", ".ts", ".tsx", ".jsx", ".go", ".rs", ".java", ".rb",
+    }]
+    prefix_counts: dict[str, int] = {}
+    for f in code_files:
+        stem = f.stem
+        if not stem or stem.startswith("_"):
+            continue
+        head = re.split(r"[_\-]", stem, maxsplit=1)[0].lower()
+        if len(head) < 3:
+            continue
+        prefix_counts[head] = prefix_counts.get(head, 0) + 1
+    top_prefix: str | None = None
+    top_ratio = 0.0
+    if code_files:
+        top_prefix, top_count = max(prefix_counts.items(), key=lambda kv: kv[1], default=(None, 0))
+        if top_prefix is not None:
+            top_ratio = round(top_count / len(code_files), 3)
+            if top_ratio < 0.4 or top_count < 5:
+                top_prefix = None
+                top_ratio = 0.0
+
+    # Signals score (0–4): one point per concerning signal. Used by the
+    # Walkability pillar grading rule in SKILL.md.
+    score = 0
+    if len(root_dirs) > 12:
+        score += 1
+    if duplicate_pairs:
+        score += 1
+    if generated:
+        score += 1
+    if top_prefix is not None:
+        score += 1
+
+    return Walkability(
+        root_dir_count=len(root_dirs),
+        root_dirs=root_dirs,
+        duplicate_name_pairs=duplicate_pairs,
+        generated_dirs_present=sorted(generated),
+        prefix_collision_ratio=top_ratio,
+        prefix_collision_token=top_prefix,
+        signals_score=score,
+    )
+
+
+# ---- Agent runtime configuration -----------------------------------------
+
+# Filenames that explicitly enumerate top-level directories — i.e. a codebase
+# map that compensates for an otherwise hard-to-walk layout.
+_CODEBASE_MAP_NAMES = {
+    "ARCHITECTURE.md", "STRUCTURE.md", "MAP.md", "REPOSITORY.md",
+    "CODEMAP.md", "LAYOUT.md", "ORGANIZATION.md",
+}
+
+# Skip these dirs when hunting for nested instruction files — they'd just
+# surface vendored copies that don't reflect repo intent.
+_AGENT_CONFIG_SKIP_DIRS = EXCLUDE_DIRS | {".claude", ".codex", "node_modules"}
+
+
+def _walk_nested_instructions(repo: Path) -> list[dict]:
+    """Find CLAUDE.md / AGENTS.md below the root. Excludes any path returned
+    by `find_instructions` (those are the "root" surface)."""
+    root_paths = set()
+    for key in ("claude_md", "agents_md"):
+        for rel in INSTRUCTION_CANDIDATES[key]:
+            root_paths.add((repo / rel).resolve())
+    found: list[dict] = []
+    for dirpath, dirs, files in os.walk(repo):
+        dirs[:] = [d for d in dirs if d not in _AGENT_CONFIG_SKIP_DIRS]
+        for fname in files:
+            if fname not in {"CLAUDE.md", "AGENTS.md"}:
+                continue
+            p = (Path(dirpath) / fname).resolve()
+            if p in root_paths:
+                continue
+            try:
+                text = p.read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                continue
+            lines = text.count("\n") + (0 if text.endswith("\n") else 1)
+            found.append({
+                "path": p.relative_to(repo).as_posix(),
+                "lines": lines,
+                "mentions_commands": bool(INSTRUCTION_COMMAND_RE.search(text)),
+            })
+    found.sort(key=lambda x: x["path"])
+    return found
+
+
+def _read_settings_json(repo: Path) -> tuple[bool, int, int]:
+    p = repo / ".claude" / "settings.json"
+    if not p.is_file():
+        return False, 0, 0
+    try:
+        data = json.loads(p.read_text(encoding="utf-8", errors="replace"))
+    except (OSError, json.JSONDecodeError):
+        return True, 0, 0
+    perms = data.get("permissions") if isinstance(data, dict) else None
+    deny = allow = 0
+    if isinstance(perms, dict):
+        d = perms.get("deny")
+        a = perms.get("allow")
+        if isinstance(d, list):
+            deny = len(d)
+        if isinstance(a, list):
+            allow = len(a)
+    return True, deny, allow
+
+
+def _list_hooks(repo: Path) -> list[str]:
+    hooks_dir = repo / ".claude" / "hooks"
+    if not hooks_dir.is_dir():
+        return []
+    out: list[str] = []
+    for entry in sorted(hooks_dir.iterdir()):
+        if entry.is_file():
+            out.append(entry.name)
+    return out
+
+
+def _list_mcp_servers(repo: Path) -> list[str]:
+    for rel in (".mcp.json", ".claude/.mcp.json"):
+        p = repo / rel
+        if not p.is_file():
+            continue
+        try:
+            data = json.loads(p.read_text(encoding="utf-8", errors="replace"))
+        except (OSError, json.JSONDecodeError):
+            return []
+        servers = data.get("mcpServers") if isinstance(data, dict) else None
+        if isinstance(servers, dict):
+            return sorted(servers.keys())
+    return []
+
+
+def _find_codebase_map(repo: Path) -> str | None:
+    for name in _CODEBASE_MAP_NAMES:
+        p = repo / name
+        if p.is_file():
+            return name
+    # README that enumerates top-level dirs as bullets — a heuristic: the
+    # README must mention at least 3 actual top-level dir names as ``code``
+    # spans or in a list. Avoids matching prose READMEs.
+    for name in ("README.md", "README.rst"):
+        p = repo / name
+        if not p.is_file():
+            continue
+        try:
+            text = p.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        try:
+            top_dirs = {d.name for d in repo.iterdir()
+                        if d.is_dir() and not d.name.startswith(".")}
+        except OSError:
+            return None
+        if not top_dirs:
+            return None
+        hits = 0
+        for d in top_dirs:
+            # Match `dir/` or `dir` inside backticks or as a list item.
+            if re.search(rf"`{re.escape(d)}/?`", text) or re.search(
+                rf"^[\s>*-]+{re.escape(d)}/", text, re.MULTILINE
+            ):
+                hits += 1
+                if hits >= 3:
+                    return name
+    return None
+
+
+def _instructions_age_days(repo: Path, claude: dict | None, agents: dict | None) -> int | None:
+    """Return age (days) of the *most-recently-modified* root instruction
+    file as reported by git log. None if no git history or no file."""
+    candidates = [info for info in (claude, agents) if info]
+    if not candidates:
+        return None
+    youngest: int | None = None
+    for info in candidates:
+        path = info.get("path")
+        if not isinstance(path, str):
+            continue
+        try:
+            out = subprocess.check_output(
+                ["git", "-C", str(repo), "log", "-1", "--format=%ct", "--", path],
+                stderr=subprocess.DEVNULL, text=True,
+            ).strip()
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            return None
+        if not out:
+            continue
+        try:
+            import time as _time
+            age = int((_time.time() - int(out)) // 86400)
+        except (ValueError, OverflowError):
+            continue
+        youngest = age if youngest is None else min(youngest, age)
+    return youngest
+
+
+def audit_agent_config(repo: Path, claude: dict | None, agents: dict | None) -> AgentConfig:
+    nested = _walk_nested_instructions(repo)
+    has_settings, deny, allow = _read_settings_json(repo)
+    hooks = _list_hooks(repo)
+    mcp = _list_mcp_servers(repo)
+    map_path = _find_codebase_map(repo)
+    age = _instructions_age_days(repo, claude, agents)
+    score = sum([
+        1 if nested else 0,
+        1 if has_settings and deny > 0 else 0,
+        1 if hooks else 0,
+        1 if mcp else 0,
+        1 if map_path else 0,
+    ])
+    return AgentConfig(
+        nested_instructions=nested,
+        nested_with_commands=sum(1 for n in nested if n["mentions_commands"]),
+        has_settings_json=has_settings,
+        deny_rules=deny,
+        allow_rules=allow,
+        hooks=hooks,
+        mcp_servers=mcp,
+        has_codebase_map=map_path is not None,
+        codebase_map_path=map_path,
+        instructions_age_days=age,
+        config_score=score,
+    )
+
+
 def build_report(repo: Path) -> dict:
     files = collect_files(repo)
     profile = profile_repo(repo, files)
@@ -1028,8 +1464,10 @@ def build_report(repo: Path) -> dict:
     )
     tests = Tests(
         runners=detect_signals(repo, TEST_SIGNALS),
-        linters=detect_signals(repo, LINT_SIGNALS),
-        typecheckers=detect_signals(repo, TYPECHECK_SIGNALS),
+        linters=sorted(set(detect_signals(repo, LINT_SIGNALS))
+                       | set(scan_manifest_lint_tokens(repo))),
+        typecheckers=sorted(set(detect_signals(repo, TYPECHECK_SIGNALS))
+                            | set(scan_manifest_typecheck_tokens(repo))),
         ci_configs=detect_ci(repo),
         coverage_tool=detect_coverage_tool(repo),
         source_test_mapping=audit_source_test_mapping(repo, files),
@@ -1052,10 +1490,13 @@ def build_report(repo: Path) -> dict:
     evals = audit_evals(repo)
     skill_quality = audit_skill_quality(repo, files)
     prompt_hygiene = audit_prompt_hygiene(repo, files)
+    walkability = audit_walkability(repo, files)
+    agent_config = audit_agent_config(repo, claude, agents)
     return {
         "repo_profile":       asdict(profile),
         "repo_shape":         asdict(repo_shape),
         "agent_instructions": asdict(instructions),
+        "agent_config":       asdict(agent_config),
         "tests":              asdict(tests),
         "hygiene":            asdict(hygiene),
         "dev_env":            asdict(dev_env),
@@ -1064,6 +1505,7 @@ def build_report(repo: Path) -> dict:
         "evals":              asdict(evals),
         "skill_quality":      asdict(skill_quality),
         "prompt_hygiene":     asdict(prompt_hygiene),
+        "walkability":        asdict(walkability),
     }
 
 

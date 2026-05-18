@@ -1,0 +1,11 @@
+{
+  "name": "code",
+  "version": "0.1.0",
+  "description": "Tools for assessing and improving source code.",
+  "author": {
+    "name": "Paolo Arduin"
+  },
+  "homepage": "https://github.com/paoloq/cc-plugins/tree/main/plugins/code",
+  "license": "MIT",
+  "keywords": ["code", "review", "audit", "refactor", "quality"]
+}

@@ -23,8 +23,9 @@ Do not ask anything else. Do not ask for aesthetic preference on prompt-engineer
 ## Token discipline
 
 - Keep the working file and long passages out of chat — the user reads the file.
-- Per insertion turn = one line `✏️  <Section> · <unit label>` + one `AskUserQuestion` call. Nothing else.
-- Section auto-skips = one line `⏭️  <Section> — <reason tied to Discovery or brief>`.
+- Status lines describe the activity generically and use capitalized sentences — never name a specific guide id, provider, or model.
+- Per insertion turn = one line `✏️  <Section> · <Unit label>` + one `AskUserQuestion` call. Nothing else.
+- Section auto-skips = one line `⏭️  <Section> — <Reason tied to Discovery or brief>`.
 - Finalize prints one line: `🎉  <path>` — clickable working-file path, nothing else.
 
 ## Workflow
@@ -77,7 +78,7 @@ For each section:
 
 For each insertion unit, in order:
 
-1. Print one line: `✏️  <Section> · <unit label>` (e.g. `✏️  Goal · success criteria`, `✏️  Tools · act-first posture`).
+1. Print one line: `✏️  <Section> · <Unit label>` (e.g. `✏️  Goal · Success criteria`, `✏️  Tools · Act-first posture`).
 2. Ask one `AskUserQuestion` with one sub-question:
    - `header`: ≤12-char tag (e.g. `Role`, `Schema`, `Tools`).
    - `question`: the unit label and one sentence on what the unit adds. When the unit is provider-specific, append one short sentence naming the guide source (e.g. "Anchored on Anthropic's tool-use posture guidance.").
