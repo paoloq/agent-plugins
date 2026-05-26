@@ -102,24 +102,13 @@ The script resolves the input/output paths from the static base `$HOME/.claude/c
 
 Keep the JSON in place after the HTML lands — the `revise` skill consumes it in report mode (it reads the `interventions` array and the recorded `prompt_path`). Print the HTML path on its own line as `🧾  <HOME>/.claude/cache/prompt/review/<project-slug>/<stamp>/<slug>.html`.
 
-Then ask the user via `AskUserQuestion` whether to open the report:
-
-- `header`: `📂  Open report`
-- `question`: `📂  Pop the report open in your browser?`
-- `multiSelect`: `false`
-- options:
-  - `🚀  Open it` — description: `Launch the report in the default browser via 'open <HOME>/.claude/cache/prompt/review/<project-slug>/<stamp>/<slug>.html'.`
-  - `Skip for now` — description: `Leave it closed; the path is already printed above.`
-
-On `Open`, run:
+Then attempt to open the report directly via Bash — the tool's own permission prompt is the single approval gate; do **not** add an `AskUserQuestion` on top of it:
 
 ```bash
 open <HOME>/.claude/cache/prompt/review/<project-slug>/<stamp>/<slug>.html
 ```
 
-On `Skip` (or anything else), stop without further action.
-
-Either way, before stopping, print **exactly two** follow-up lines so the user can act on the report without retyping a path. Substitute the real slug and timestamp.
+If the user denies the Bash call, stop without retrying. Either way, before stopping, print **exactly two** follow-up lines so the user can act on the report without retyping a path. Substitute the real slug and timestamp.
 
 ```
 🛠️  Want to apply the fixes? Ask me to revise it and I'll dive right in.
@@ -130,6 +119,6 @@ Informational only — leave the command for the user to fire when they want to.
 
 ## Constraints
 
-- At most two Bash calls per session: `scripts/render_report.py` after writing the JSON, and — only if the user approves — `open` on the final HTML. Everything else uses Read / Write.
+- At most two Bash calls per session: `scripts/render_report.py` after writing the JSON, and `open` on the final HTML (the Bash permission prompt is the only approval gate — never wrap it in an extra `AskUserQuestion`). Everything else uses Read / Write.
 - Never invent a guide URL or section heading. Only the URLs in the guide-file markers and section headings visible inside `<plugin-root>/guides/<id>.md` are valid.
 - If the user later asks to apply the rewrites, treat that as a separate task; this skill only assesses and reports.
