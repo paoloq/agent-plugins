@@ -132,7 +132,7 @@
       "must_contain": [
         "When invoked from `loop`",
         "caller-provided output directory",
-        "suppress"
+        "Suppress"
       ]
     },
     {
