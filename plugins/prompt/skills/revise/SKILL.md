@@ -52,15 +52,17 @@ Dimensions:
 1. **Structured output** — JSON mode / `response_format` / tool-call as the output channel? If yes, skip free-form output-schema proposals and downgrade format-strictness revisions.
 2. **Runtime user input** — does the prompt receive a user message at runtime, or is it self-contained? If self-contained, skip `Input schema` and `untrusted-input` clauses.
 3. **Tools / agentic loop** — does the model call tools or loop? If no, skip `Tools`, `Stop rules`, and loop-cap clauses.
-4. **Target model family** — `openai` / `anthropic` / `google` / `mixed`? Steers which guide weighs most on conflicts. Default `mixed` if unanswered.
+4. **Target model family** — `openai` / `anthropic` / `google` / `cross-provider`? Steers which guide weighs most on conflicts. Default `cross-provider` if unanswered.
 
-For each unresolved dimension, propose two or three concrete options. On decline or "unsure", use conservative defaults (`runtime_user_input=yes`, `tools_or_agentic=no`, `target_model_family=mixed`).
+For each unresolved dimension, propose two or three concrete options. On decline or "unsure", use conservative defaults (`runtime_user_input=yes`, `tools_or_agentic=no`, `target_model_family=cross-provider`).
 
 ### 2. Read the guides
 
 `<plugin-root>` is the directory containing this plugin's `skills/` and `guides/` folders — derive its absolute path from this SKILL.md's own location (two directories up from `skills/revise/`). Use absolute literal paths; do not write `~` or `$HOME` (expanding them requires Bash).
 
-Each guide lives in its own file under `<plugin-root>/guides/<id>.md`, with HTML comment markers at the top (`<!-- guide: <id> -->`, `<!-- provider: ... -->`, `<!-- models: ... -->`, `<!-- title: ... -->`, `<!-- url: ... -->`). Available guides: `openai-gpt-5-5`, `openai-gpt-5-4`, `anthropic-claude-4`, `google-gemini-3`.
+Each guide lives in its own file under `<plugin-root>/guides/<id>.md`, with HTML comment markers at the top (`<!-- guide: <id> -->`, `<!-- provider: ... -->`, `<!-- models: ... -->`, `<!-- title: ... -->`, `<!-- url: ... -->`). Available guides: `openai-gpt-5-5`, `openai-gpt-5-4`, `anthropic-claude-4`, `google-gemini-3`, `cross-provider`.
+
+When `target_model_family` is `cross-provider` (the default), anchor revisions on the `cross-provider` guide and reach for per-provider guides only when a unit's wording materially differs across providers. When it is `openai` / `anthropic` / `google`, anchor on that provider's guide(s) and use `cross-provider` only for consensus-level claims.
 
 Use **Read** on `<plugin-root>/guides/<id>.md` for each guide; page with `offset`/`limit` rather than loading entire long files. Use Read for file access — Bash calls (`grep`, `cat`, `head`, `sed`, `ls`) trigger permission prompts.
 

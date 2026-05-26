@@ -38,6 +38,7 @@ followed by the guide body. The available guides are:
 - `openai-gpt-5-4` — openai — models: gpt-5.4
 - `anthropic-claude-4` — anthropic — models: claude-opus-4-7, claude-sonnet-4-6, claude-haiku-4-5
 - `google-gemini-3` — google — models: gemini-3, gemini-3.1
+- `cross-provider` — cross-provider — distilled consensus across all four guides above; use when the question is mixed-provider or provider-agnostic
 
 ## Workflow
 
@@ -45,7 +46,7 @@ For every invocation:
 
 ### 1. Pick the relevant guides
 
-Match the user's question against the provider/models list above. Pick the guide ids the question concerns. If it spans multiple providers, plan to read each separately and keep provider-specific guidance distinct from cross-provider consensus.
+Match the user's question against the provider/models list above. Pick the guide ids the question concerns. If it spans multiple providers, or the target is unknown, read `cross-provider` first and add per-provider guides only for points where attribution matters.
 
 ### 2. Read the relevant guides
 
@@ -61,8 +62,8 @@ Answer with section headings named in-text (e.g., "the guide's *Plan before you 
 
 When the question spans multiple providers, structure the answer as:
 
-- One section per provider, with section-heading references in-text.
-- A trailing **Cross-provider consensus** section only for points where ≥ 2 guides agree.
+- Start with a **Cross-provider consensus** section grounded in the `cross-provider` guide.
+- One section per provider for points where the provider deviates from or extends the consensus, with section-heading references in-text.
 - A single trailing **Sources** block resolving every cited section.
 
 Keep provider-specific advice in its own section so attribution stays clear.

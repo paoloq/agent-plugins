@@ -17,7 +17,7 @@ Input shape:
         "structured_output":   "yes|no|unknown",
         "runtime_user_input":  "yes|no|unknown",
         "tools_or_agentic":    "yes|no|unknown",
-        "target_model_family": "openai|anthropic|google|mixed|unknown",
+        "target_model_family": "openai|anthropic|google|cross-provider",
         "notes":               "one-line summary"
       },
       "guides": [
@@ -150,7 +150,7 @@ def render_hero(title: str, counts: dict[str, int]) -> str:
     )
 
 
-PROVIDER_LABEL = {"openai": "OpenAI", "anthropic": "Anthropic", "google": "Google"}
+PROVIDER_LABEL = {"openai": "OpenAI", "anthropic": "Anthropic", "google": "Google", "cross-provider": "Cross-provider"}
 
 
 def render_guides_panel(guides: list[dict]) -> str:
@@ -198,7 +198,7 @@ def render_context_panel(context: dict) -> str:
             f'<span class="sr-only"> ({state})</span></span>'
         )
     target = (context.get("target_model_family") or "").lower()
-    if target and target not in ("unknown", "mixed"):
+    if target:
         target_label = PROVIDER_LABEL.get(target, target)
         chips.append(
             f'<span class="chip ctx target">'

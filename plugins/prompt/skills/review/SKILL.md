@@ -38,7 +38,7 @@ Dimensions (each line says when to **skip the question** and record the explicit
 3. **Tools / agentic loop** — skip and record `yes` when the prompt text literally names tools (a `## Tools` section, a `<tools>` block, `tool_use` references, or a tool inventory). Skip and record `no` when the prompt is a single-shot transform with no looping or stop-rule language. Otherwise ask.
 4. **Target model family** — skip and record the family when the prompt text literally names a specific model (`gpt-5.5`, `claude-opus-4-7`, `gemini-3`, etc.). Otherwise ask.
 
-For each asked dimension, propose **two or three concrete options** (the obvious yes / no / one nuance), plus the implicit "Other" the user can use to clarify. Record the final answers verbatim in a `context` object on the report payload (see step 4). When the user picks an unsure option or declines, use conservative defaults (`runtime_user_input=yes`, `tools_or_agentic=no`, `target_model_family=mixed`) and note that in the `context.notes` field.
+For each asked dimension, propose **two or three concrete options** (the obvious yes / no / one nuance), plus the implicit "Other" the user can use to clarify. The `target_model_family` options are `openai` / `anthropic` / `google` / `cross-provider` — pick `cross-provider` when the prompt must run on multiple providers or the target is unknown. Record the final answers verbatim in a `context` object on the report payload (see step 4). When the user picks an unsure option or declines, use conservative defaults (`runtime_user_input=yes`, `tools_or_agentic=no`, `target_model_family=cross-provider`) and note that in the `context.notes` field.
 
 ### 2. Read the guides
 
@@ -50,6 +50,9 @@ Each guide lives in its own file under `<plugin-root>/guides/<id>.md`, with HTML
 - `openai-gpt-5-4` — openai — title `OpenAI GPT-5.4 prompting guide`
 - `anthropic-claude-4` — anthropic — title `Anthropic Claude 4 best practices`
 - `google-gemini-3` — google — title `Google Gemini Prompt design strategies`
+- `cross-provider` — cross-provider — title `Cross-provider prompt-engineering guide`
+
+When `context.target_model_family` is `cross-provider`, use the `cross-provider` guide as primary and cite per-provider guides only for points where attribution materially differs. When it is `openai`, `anthropic`, or `google`, use that provider's guide(s) primarily and reach for `cross-provider` only to back consensus-level claims.
 
 Use **Read** on `<plugin-root>/guides/<id>.md` for each guide; page with `offset`/`limit` rather than loading entire long files. Use Read for file access — Bash calls (`grep`, `cat`, `head`, `sed`, `ls`) trigger permission prompts.
 
@@ -84,7 +87,7 @@ Build the JSON payload:
     "structured_output":   "yes|no|unknown",
     "runtime_user_input":  "yes|no|unknown",
     "tools_or_agentic":    "yes|no|unknown",
-    "target_model_family": "openai|anthropic|google|mixed|unknown",
+    "target_model_family": "openai|anthropic|google|cross-provider",
     "notes":               "<optional one-line summary of assumptions or how each value was resolved>"
   },
   "guides":         [<one entry per guide read from guides/<id>.md markers: {provider, title, url}>],
