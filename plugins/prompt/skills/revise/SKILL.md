@@ -110,3 +110,15 @@ After the last unit is handled:
 - Never invent a guide URL or section heading. Only the URLs in the guide-file markers and section headings visible inside `<plugin-root>/guides/<id>.md` are valid.
 - Never edit the original source file (in file mode). Never edit anything outside `<HOME>/.claude/cache/prompt/revise/<project-slug>/<stamp>/<slug>-revised.md`.
 - If the user later asks to assess the revised prompt, treat that as a separate task (hand off to the `review` skill); this skill only revises.
+
+## Loop callers
+
+When invoked from `loop` (the caller will pass `severity_floor`, `report_path`, and `caller_out_path` arguments), switch to **auto-apply mode**:
+
+1. **Severity floor.** Walk the report's `interventions` array as in report mode, but apply every intervention whose `severity` is at or above the severity floor — ordering `Critical | High | Medium | Low | Info`. Skip interventions below the floor with a single line `⏭️  <Section> · <Unit> — Below floor`.
+2. **No per-change AskUserQuestion.** The interactive walk in step 4 is replaced: each in-scope intervention is applied directly via `Edit`, using its `suggested` field as the replacement text. Unchanged-text and not-applicable skips still log a one-line `⏭️` summary.
+3. **Caller-output path.** Write the working file at `caller_out_path` (typically `<loop-root>/iter-NN/revised.md`) instead of the default `<HOME>/.claude/cache/prompt/revise/<project-slug>/<stamp>/<slug>-revised.md`. Seed it once with the source prompt's full text, then `Edit` in place.
+4. **No clarify-runtime-context pass.** Reuse the `context` block from the iteration's review JSON. If a dimension is `unknown` in the report, fall back to the conservative defaults from section 1.5 — do not ask the user inside the loop.
+5. **No session-pickup prompt.** The caller hands the report path explicitly.
+
+When invoked directly (no `severity_floor`), the existing interactive flow applies unchanged.

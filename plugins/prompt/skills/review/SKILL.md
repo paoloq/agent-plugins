@@ -122,3 +122,12 @@ Informational only — leave the command for the user to fire when they want to.
 - At most two Bash calls per session: `scripts/render_report.py` after writing the JSON, and `open` on the final HTML (the Bash permission prompt is the only approval gate — never wrap it in an extra `AskUserQuestion`). Everything else uses Read / Write.
 - Never invent a guide URL or section heading. Only the URLs in the guide-file markers and section headings visible inside `<plugin-root>/guides/<id>.md` are valid.
 - If the user later asks to apply the rewrites, treat that as a separate task; this skill only assesses and reports.
+
+## Loop callers
+
+When invoked from `loop` (the caller will pass a `caller_out_dir` argument), apply both of these adjustments:
+
+1. **Use the caller-provided output directory.** Write the JSON+HTML pair to `<caller_out_dir>/review.json` and `<caller_out_dir>/review.html` instead of the default `<HOME>/.claude/cache/prompt/review/<project-slug>/<stamp>/<slug>.{json,html}`. Pass `--out-dir <caller_out_dir>` to `render_report.py`; the renderer will use it directly and ignore the composed `--project/--stamp/--slug` path. Payload shape, intervention ordering, and rendering are unchanged.
+2. **suppress the open-report Bash call.** Do not run `open` and do not ask `AskUserQuestion` about opening. Print the JSON+HTML paths on their own lines and return. The loop owns the user-facing open gate.
+
+When invoked directly (no `caller_out_dir`), the default cache path and the standard open-report Bash call both apply.

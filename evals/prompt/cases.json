@@ -14,7 +14,11 @@
       "what does the openai guide say",
       "what does the anthropic guide say",
       "what does the gemini guide say",
-      "check the prompting guide"
+      "check the prompting guide",
+      "loop this prompt",
+      "iterate on this prompt",
+      "iterate review and revise",
+      "keep revising"
     ],
     "positive": [
       "can you draft a prompt for an agent that summarizes pull requests?",
@@ -25,7 +29,10 @@
       "refactor this prompt to follow openai's structured-output guidance",
       "what does the openai guide say about reasoning effort for gpt-5.5?",
       "according to the anthropic docs, when should i use extended thinking?",
-      "can you check the prompting guide for gemini 3 on tool use?"
+      "can you check the prompting guide for gemini 3 on tool use?",
+      "loop this prompt at prompts/triage.md until there's nothing left to fix",
+      "iterate review and revise on prompts/agent.md at high effort",
+      "keep revising this prompt until it converges"
     ],
     "negative": [
       "explain how system prompts differ from user messages",
@@ -35,7 +42,9 @@
       "how should i prompt gpt-5.5 for code review?",
       "which model is cheapest for long-context summarization?",
       "compare opus 4.7 vs sonnet 4.6 latency",
-      "draft an email to the team about the migration timeline"
+      "draft an email to the team about the migration timeline",
+      "loop over the test suite until all tests pass",
+      "iterate on the database migration plan"
     ]
   },
   "output": [
@@ -91,15 +100,62 @@
       "must_contain": ["session pickup", "Reuse this report"]
     },
     {
+      "id": "loop-skill-frontmatter",
+      "kind": "golden",
+      "fixture": "../skills/loop/SKILL.md",
+      "frontmatter_required_keys": ["name", "description"],
+      "must_contain": [
+        "<HOME>/.claude/cache/prompt/loop/",
+        "iter-",
+        "final-revised.md",
+        "review",
+        "revise",
+        "Critical",
+        "Info"
+      ]
+    },
+    {
+      "id": "loop-skill-effort-table",
+      "kind": "golden",
+      "fixture": "../skills/loop/SKILL.md",
+      "must_contain": [
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ]
+    },
+    {
+      "id": "review-skill-loop-hook",
+      "kind": "golden",
+      "fixture": "../skills/review/SKILL.md",
+      "must_contain": [
+        "When invoked from `loop`",
+        "caller-provided output directory",
+        "suppress"
+      ]
+    },
+    {
+      "id": "revise-skill-auto-apply",
+      "kind": "golden",
+      "fixture": "../skills/revise/SKILL.md",
+      "must_contain": [
+        "auto-apply mode",
+        "severity floor",
+        "When invoked from `loop`"
+      ]
+    },
+    {
       "id": "no-legacy-slash-command-refs",
       "kind": "golden",
       "fixtures": [
         "../skills/draft/SKILL.md",
         "../skills/guides/SKILL.md",
         "../skills/review/SKILL.md",
-        "../skills/revise/SKILL.md"
+        "../skills/revise/SKILL.md",
+        "../skills/loop/SKILL.md"
       ],
-      "must_not_contain": ["/prompt draft", "/prompt guides", "/prompt review", "/prompt revise"],
+      "must_not_contain": ["/prompt draft", "/prompt guides", "/prompt review", "/prompt revise", "/prompt loop"],
       "regex_must_not_match": "(?m)^## Input\\s*$"
     }
   ]

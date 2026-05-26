@@ -388,14 +388,25 @@ def build_html(data: dict) -> str:
 
 def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--project", required=True, help="project slug")
-    ap.add_argument("--stamp", required=True, help="run stamp (e.g. YYYYMMDD-HHMMSS)")
-    ap.add_argument("--slug", required=True, help="prompt slug")
+    ap.add_argument("--project", help="project slug (ignored when --out-dir is set)")
+    ap.add_argument("--stamp", help="run stamp (ignored when --out-dir is set)")
+    ap.add_argument("--slug", help="prompt slug (ignored when --out-dir is set)")
+    ap.add_argument(
+        "--out-dir",
+        help="override output directory; reads review.json and writes review.html there",
+    )
     args = ap.parse_args(argv)
 
-    run_dir = BASE_DIR / args.project / args.stamp
-    in_path = run_dir / f".{args.slug}.json"
-    out_path = run_dir / f"{args.slug}.html"
+    if args.out_dir:
+        out_dir = Path(args.out_dir)
+        in_path = out_dir / "review.json"
+        out_path = out_dir / "review.html"
+    else:
+        if not (args.project and args.stamp and args.slug):
+            ap.error("--project, --stamp, and --slug are required when --out-dir is not set")
+        run_dir = BASE_DIR / args.project / args.stamp
+        in_path = run_dir / f".{args.slug}.json"
+        out_path = run_dir / f"{args.slug}.html"
 
     data = json.loads(in_path.read_text(encoding="utf-8"))
     out_path.write_text(build_html(data), encoding="utf-8")
